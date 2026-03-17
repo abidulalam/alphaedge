@@ -125,40 +125,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* PRICING */}
-      <section id="pricing" style={{ borderTop: '1px solid var(--border)', padding: '72px 0' }}>
-        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 48px' }}>
-          <div style={{ marginBottom: 48 }}>
-            <div style={{ fontSize: 10, color: 'var(--accent)', letterSpacing: 3, textTransform: 'uppercase', marginBottom: 12 }}>// Pricing</div>
-            <h2 style={{ fontSize: 42, fontWeight: 700, letterSpacing: -1, textTransform: 'uppercase' }}>No Annual Contracts.<br />Cancel Anytime.</h2>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16 }}>
-            {[
-              { tier: 'Starter', price: '$0', period: 'free forever', featured: false, desc: 'Get started with AI-powered research.', features: ['5 analyses / month', 'Basic moat scoring', '3-stock watchlist', 'Live prices'], cta: 'Get Started Free' },
-              { tier: 'Pro', price: '$29', period: 'per month', featured: true, desc: 'Full depth for serious investors.', features: ['Unlimited analyses', 'All quant signals', 'AI research reports', 'Earnings + insider data', 'Unlimited watchlists', 'Score alerts'], cta: 'Start 14-Day Trial' },
-              { tier: 'Institutional', price: '$99', period: 'per month', featured: false, desc: 'Institutional depth for pro operators.', features: ['Everything in Pro', 'API access', 'Portfolio analytics', 'Priority support', 'Dedicated onboarding'], cta: 'Contact Sales' },
-            ].map(p => (
-              <div key={p.tier} style={{ border: '1px solid ' + (p.featured ? 'var(--accent)' : 'var(--border2)'), borderRadius: 4, padding: 28, display: 'flex', flexDirection: 'column', background: p.featured ? 'rgba(255,85,0,.04)' : 'var(--bg2)' }}>
-                <div style={{ fontSize: 10, letterSpacing: 3, textTransform: 'uppercase', color: p.featured ? 'var(--accent)' : 'var(--text3)', marginBottom: 12 }}>{p.tier}</div>
-                <div style={{ fontSize: 40, fontWeight: 700, lineHeight: 1, marginBottom: 4 }}>{p.price}</div>
-                <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 12 }}>{p.period}</div>
-                <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 20, fontFamily: "'Space Grotesk', sans-serif" }}>{p.desc}</div>
-                <ul style={{ listStyle: 'none', marginBottom: 24, flex: 1 }}>
-                  {p.features.map(f => (
-                    <li key={f} style={{ fontSize: 12, color: 'var(--text2)', padding: '6px 0', borderBottom: '1px solid var(--border)', display: 'flex', gap: 8, alignItems: 'center' }}>
-                      <span style={{ color: 'var(--accent)', fontWeight: 700, fontSize: 10 }}>→</span>{f}
-                    </li>
-                  ))}
-                </ul>
-                <Link href="/dashboard" style={{ display: 'block', textAlign: 'center', padding: '10px', background: p.featured ? 'var(--accent)' : 'transparent', color: p.featured ? '#000' : 'var(--text)', border: '1px solid ' + (p.featured ? 'var(--accent)' : 'var(--border2)'), fontSize: 11, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', borderRadius: 2 }}>
-                  {p.cta}
-                </Link>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* CTA */}
       <section style={{ borderTop: '1px solid var(--border)', background: 'var(--bg2)', padding: '72px 48px' }}>
         <div style={{ maxWidth: 600, margin: '0 auto', textAlign: 'center' }}>

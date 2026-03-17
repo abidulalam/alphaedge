@@ -27,9 +27,9 @@
 
   /* Text */
   --text:    #FFFFFF;
-  --text2:   #999999;
-  --text3:   #444444;
-  --text4:   #2a2a2a;
+  --text2:   #CCCCCC;
+  --text3:   #888888;
+  --text4:   #555555;
 
   --mono:    'IBM Plex Mono', monospace;
   --sans:    'Space Grotesk', sans-serif;
@@ -41,7 +41,7 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--mono);
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
 }
