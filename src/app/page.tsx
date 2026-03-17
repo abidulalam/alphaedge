@@ -1,12 +1,30 @@
+'use client'
+import { useEffect, useState, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import Navbar from '@/components/Navbar'
 import TickerTape from '@/components/TickerTape'
+import AuthModal from '@/components/AuthModal'
+
+function AuthHandler({ onSignin }: { onSignin: () => void }) {
+  const params = useSearchParams()
+  useEffect(() => {
+    if (params.get('auth') === 'signin') onSignin()
+  }, [params, onSignin])
+  return null
+}
 
 export default function Home() {
+  const [modal, setModal] = useState<'signin' | 'signup' | null>(null)
+
   return (
     <>
+      <Suspense fallback={null}>
+        <AuthHandler onSignin={() => setModal('signin')} />
+      </Suspense>
       <Navbar />
       <TickerTape />
+      {modal && <AuthModal mode={modal} onClose={() => setModal(null)} />}
 
       {/* HERO */}
       <section style={{ maxWidth: 1280, margin: '0 auto', padding: '80px 48px 72px', display: 'grid', gridTemplateColumns: '1fr 480px', gap: 64, alignItems: 'center' }}>
