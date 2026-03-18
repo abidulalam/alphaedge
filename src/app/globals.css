@@ -3,16 +3,16 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  /* Pure black base — like the Figma */
-  --bg:      #000000;
-  --bg2:     #0a0a0a;
-  --bg3:     #111111;
-  --bg4:     #1a1a1a;
+  /* Dark navy base — easier on the eyes, Bloomberg terminal feel */
+  --bg:      #0c1220;
+  --bg2:     #111b2e;
+  --bg3:     #172438;
+  --bg4:     #1e2f47;
 
   /* Borders */
-  --border:  #1e1e1e;
-  --border2: #2a2a2a;
-  --border3: #333333;
+  --border:  #1e2d42;
+  --border2: #253650;
+  --border3: #2e4060;
 
   /* Orange accent — primary brand color */
   --accent:  #FF5500;

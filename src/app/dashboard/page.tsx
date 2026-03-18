@@ -388,7 +388,52 @@ export default function Dashboard() {
 
                 {/* QUANT SIGNALS */}
                 {tab === 'Quant Signals' && !qs && (
-                  <div style={{ padding: '40px 0', color: 'var(--text3)', fontSize: 14 }}>Insufficient price history to compute signals (need 20+ trading days).</div>
+                  <div>
+                    <div style={{ padding: '12px 16px', background: 'rgba(255,85,0,.06)', border: '1px solid rgba(255,85,0,.2)', borderRadius: 6, fontSize: 13, color: 'var(--text2)', marginBottom: 24 }}>
+                      Technical signals unavailable — insufficient price history from data provider. Showing fundamental signals instead.
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                      <div>
+                        <SHead label="Valuation Signals" />
+                        <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 14px 8px' }}>
+                          <SRow label="P/E Ratio" value={data.pe ? data.pe.toFixed(1) + 'x' : '—'} barColor={data.pe && data.pe < 20 ? 'var(--green)' : data.pe && data.pe > 40 ? 'var(--red)' : 'var(--amber)'} />
+                          <SRow label="EV/EBITDA" value={data.evToEbitda ? data.evToEbitda.toFixed(1) + 'x' : '—'} barColor={data.evToEbitda && data.evToEbitda < 15 ? 'var(--green)' : 'var(--amber)'} />
+                          <SRow label="Price/Book" value={data.priceToBook ? data.priceToBook.toFixed(2) + 'x' : '—'} barColor="var(--accent)" />
+                          <SRow label="Price/Sales" value={data.priceToSales ? data.priceToSales.toFixed(2) + 'x' : '—'} barColor="var(--accent)" />
+                          <SRow label="PEG Ratio" value={data.pegRatio ? data.pegRatio.toFixed(2) : '—'} barColor={data.pegRatio && data.pegRatio < 1 ? 'var(--green)' : data.pegRatio && data.pegRatio > 2 ? 'var(--red)' : 'var(--amber)'} />
+                        </div>
+                        <SHead label="Growth & Profitability" />
+                        <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 14px 8px' }}>
+                          <SRow label="Revenue Growth" value={data.revenueGrowth != null ? (data.revenueGrowth * 100).toFixed(1) + '%' : '—'} barColor={data.revenueGrowth > 0 ? 'var(--green)' : 'var(--red)'} />
+                          <SRow label="Profit Margin" value={data.profitMargins != null ? (data.profitMargins * 100).toFixed(1) + '%' : '—'} barColor={data.profitMargins > 0.1 ? 'var(--green)' : data.profitMargins > 0 ? 'var(--amber)' : 'var(--red)'} />
+                          <SRow label="ROE (TTM)" value={data.roeTTM != null ? data.roeTTM.toFixed(1) + '%' : '—'} barColor={data.roeTTM > 15 ? 'var(--green)' : 'var(--amber)'} />
+                          <SRow label="ROA (TTM)" value={data.roaTTM != null ? data.roaTTM.toFixed(1) + '%' : '—'} barColor={data.roaTTM > 5 ? 'var(--green)' : 'var(--amber)'} />
+                        </div>
+                      </div>
+                      <div>
+                        <SHead label="Risk Metrics" />
+                        <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 14px 8px' }}>
+                          <SRow label="Beta" value={data.beta != null ? data.beta.toFixed(2) : '—'} barColor={data.beta && data.beta > 1.5 ? 'var(--red)' : data.beta && data.beta < 0.8 ? 'var(--green)' : 'var(--amber)'} />
+                          <SRow label="Debt/Equity" value={data.debtToEquity != null ? data.debtToEquity.toFixed(2) : '—'} barColor={data.debtToEquity && data.debtToEquity > 2 ? 'var(--red)' : 'var(--green)'} />
+                          <SRow label="Current Ratio" value={data.currentRatio != null ? data.currentRatio.toFixed(2) : '—'} barColor={data.currentRatio && data.currentRatio > 1.5 ? 'var(--green)' : 'var(--red)'} />
+                          <SRow label="Dividend Yield" value={data.dividendYield != null ? data.dividendYield.toFixed(2) + '%' : '—'} barColor="var(--accent)" />
+                        </div>
+                        <SHead label="52-Week Range" />
+                        <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 14px 8px' }}>
+                          <SRow label="52W High" value={data.fiftyTwoWeekHigh ? '$' + data.fiftyTwoWeekHigh.toFixed(2) : '—'} barColor="var(--red)" />
+                          <SRow label="52W Low" value={data.fiftyTwoWeekLow ? '$' + data.fiftyTwoWeekLow.toFixed(2) : '—'} barColor="var(--green)" />
+                          {data.price && data.fiftyTwoWeekHigh && data.fiftyTwoWeekLow && (
+                            <SRow
+                              label="Position in Range"
+                              value={((data.price - data.fiftyTwoWeekLow) / (data.fiftyTwoWeekHigh - data.fiftyTwoWeekLow) * 100).toFixed(0) + '%'}
+                              bar={(data.price - data.fiftyTwoWeekLow) / (data.fiftyTwoWeekHigh - data.fiftyTwoWeekLow) * 100}
+                              barColor="var(--accent)"
+                            />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 )}
                 {tab === 'Quant Signals' && qs && (
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
@@ -637,17 +682,18 @@ export default function Dashboard() {
                     {!data.news || data.news.length === 0
                       ? <div style={{ color: 'var(--text3)', fontSize: 14, paddingTop: 20 }}>No recent news for {data.ticker}.</div>
                       : data.news.map((n: any, i: number) => (
-                        <a key={i} href={n.url} target="_blank" rel="noopener" style={{ display: 'block', padding: '14px 0', borderBottom: '1px solid var(--border)' }}>
+                        <a key={i} href={n.url} target="_blank" rel="noopener noreferrer" style={{ display: 'block', padding: '14px 0', borderBottom: '1px solid var(--border)', cursor: 'pointer', textDecoration: 'none' }}>
                           <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 6 }}>
                             <span style={{ fontFamily: mono, fontSize: 11, color: 'var(--accent)' }}>{n.source}</span>
                             <span style={{ fontSize: 11, color: 'var(--text3)' }}>{n.published ? new Date(n.published).toLocaleDateString() : ''}</span>
                             {n.sentiment && (
-                              <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 3, background: n.sentiment === 'positive' ? 'rgba(0,217,126,.1)' : n.sentiment === 'negative' ? 'rgba(255,77,77,.1)' : 'rgba(74,85,104,.1)', color: n.sentiment === 'positive' ? 'var(--accent)' : n.sentiment === 'negative' ? 'var(--red)' : 'var(--text3)' }}>
+                              <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 3, background: n.sentiment === 'positive' ? 'rgba(0,217,126,.1)' : n.sentiment === 'negative' ? 'rgba(255,77,77,.1)' : 'rgba(74,85,104,.1)', color: n.sentiment === 'positive' ? 'var(--green)' : n.sentiment === 'negative' ? 'var(--red)' : 'var(--text3)' }}>
                                 {n.sentiment.toUpperCase()}
                               </span>
                             )}
+                            <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text3)' }}>↗</span>
                           </div>
-                          <div style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.5 }}>{n.title}</div>
+                          <div style={{ fontSize: 14, color: 'var(--accent)', lineHeight: 1.5, fontWeight: 500 }}>{n.title}</div>
                         </a>
                       ))
                     }
