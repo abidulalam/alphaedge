@@ -8,6 +8,33 @@ import {
 // Small delay helper to stagger requests and avoid rate limits
 const delay = (ms: number) => new Promise(r => setTimeout(r, ms))
 
+// Stooq fallback for daily candle data (free, no key, US stocks)
+async function stooqDailyCandles(ticker: string, days = 400) {
+  const sym  = ticker.toLowerCase().replace(/[^a-z0-9]/g, '') + '.us'
+  const from = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
+  const to   = new Date()
+  const d1   = from.toISOString().split('T')[0].replace(/-/g, '')
+  const d2   = to.toISOString().split('T')[0].replace(/-/g, '')
+  const url  = `https://stooq.com/q/d/l/?s=${sym}&d1=${d1}&d2=${d2}&i=d`
+  const res  = await fetch(url, { next: { revalidate: 3600 }, headers: { 'User-Agent': 'Mozilla/5.0' } })
+  if (!res.ok) throw new Error(`Stooq ${res.status}`)
+  const csv   = await res.text()
+  const lines = csv.trim().split('\n')
+  if (lines.length < 2) return []
+  const bars = []
+  for (let i = 1; i < lines.length; i++) {
+    const parts = lines[i].split(',')
+    if (parts.length < 5) continue
+    const [dateStr, open, high, low, close, vol] = parts
+    const ts = Math.floor(new Date(dateStr).getTime() / 1000)
+    const c  = parseFloat(close)
+    if (!ts || !c || c <= 0) continue
+    bars.push({ t: ts * 1000, c, o: parseFloat(open) || c, h: parseFloat(high) || c, l: parseFloat(low) || c, v: parseInt(vol ?? '0') || 0 })
+  }
+  // Stooq returns newest-first — reverse to chronological
+  return bars.reverse()
+}
+
 export async function GET(req: NextRequest) {
   const ticker = req.nextUrl.searchParams.get('ticker')
   if (!ticker) return NextResponse.json({ error: 'ticker required' }, { status: 400 })
@@ -44,33 +71,37 @@ export async function GET(req: NextRequest) {
 
     if (!q || q.c === 0) return NextResponse.json({ error: `No data for ${t}` }, { status: 404 })
 
-    // Build candle data — defensive parsing
-    const candleData = (() => {
-      if (!cd || cd.s !== 'ok' || !cd.t || !Array.isArray(cd.t) || cd.t.length === 0) {
-        console.log(`[${t}] No candle data: s=${cd?.s}, count=${cd?.t?.length ?? 0}`)
-        return []
-      }
-      const bars = cd.t.map((ts: number, i: number) => ({
+    // Build candle data — try Finnhub first, fall back to Stooq
+    let candleData: { t: number; c: number; o: number; h: number; l: number; v: number }[] = []
+    if (cd?.s === 'ok' && Array.isArray(cd.t) && cd.t.length > 0) {
+      candleData = cd.t.map((ts: number, i: number) => ({
         t: ts * 1000,
-        o: cd.o?.[i] ?? cd.c?.[i] ?? null,
-        c: cd.c?.[i] ?? null,
-        h: cd.h?.[i] ?? cd.c?.[i] ?? null,
-        l: cd.l?.[i] ?? cd.c?.[i] ?? null,
+        o: cd.o?.[i] ?? cd.c?.[i] ?? 0,
+        c: cd.c?.[i] ?? 0,
+        h: cd.h?.[i] ?? cd.c?.[i] ?? 0,
+        l: cd.l?.[i] ?? cd.c?.[i] ?? 0,
         v: cd.v?.[i] ?? 0,
-      })).filter((d: any) => d.c !== null && d.c > 0)
-      console.log(`[${t}] Candles: ${bars.length} bars`)
-      return bars
-    })()
+      })).filter((d: any) => d.c > 0)
+      console.log(`[${t}] Finnhub candles: ${candleData.length} bars`)
+    }
+    if (candleData.length === 0) {
+      try {
+        candleData = await stooqDailyCandles(t, 400)
+        console.log(`[${t}] Stooq candles: ${candleData.length} bars`)
+      } catch (e: any) {
+        console.log(`[${t}] Stooq failed: ${e.message}`)
+      }
+    }
 
-    const chartData    = candleData.map((d: any) => ({ t: d.t, c: d.c }))
-    // Full OHLCV in unix seconds (for lightweight-charts which expects seconds, not ms)
-    const ohlcv = candleData.map((d: any) => ({
+    const chartData = candleData.map(d => ({ t: d.t, c: d.c }))
+    // Full OHLCV in unix seconds
+    const ohlcv = candleData.map(d => ({
       time:   Math.floor(d.t / 1000),
-      open:   d.o ?? d.c,
-      high:   d.h ?? d.c,
-      low:    d.l ?? d.c,
+      open:   d.o,
+      high:   d.h,
+      low:    d.l,
       close:  d.c,
-      volume: d.v ?? 0,
+      volume: d.v,
     }))
     const quantSignals = computeQuantSignals(candleData)
     console.log(`[${t}] quantSignals computed: ${quantSignals ? quantSignals.trend : 'null (insufficient data)'}`)
