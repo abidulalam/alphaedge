@@ -56,14 +56,42 @@ const CRYPTO_PAIRS: { sym: string; label: string }[] = [
   { sym: 'BINANCE:XRPUSDT',  label: 'XRP/USD'  },
 ]
 
-const FX_PAIRS: { sym: string; label: string; base: string; quote: string }[] = [
-  { sym: 'OANDA:EUR_USD', label: 'EUR/USD', base: 'EUR', quote: 'USD' },
-  { sym: 'OANDA:GBP_USD', label: 'GBP/USD', base: 'GBP', quote: 'USD' },
-  { sym: 'OANDA:USD_JPY', label: 'USD/JPY', base: 'USD', quote: 'JPY' },
-  { sym: 'OANDA:USD_CHF', label: 'USD/CHF', base: 'USD', quote: 'CHF' },
-  { sym: 'OANDA:AUD_USD', label: 'AUD/USD', base: 'AUD', quote: 'USD' },
-  { sym: 'OANDA:USD_CAD', label: 'USD/CAD', base: 'USD', quote: 'CAD' },
+// FX via Frankfurter API (free, ECB rates, no key needed)
+// We fetch USD base then invert for USD/XXX pairs
+const FX_LABELS: { label: string; currency: string; invert: boolean }[] = [
+  { label: 'EUR/USD', currency: 'EUR', invert: false },
+  { label: 'GBP/USD', currency: 'GBP', invert: false },
+  { label: 'USD/JPY', currency: 'JPY', invert: true  },
+  { label: 'USD/CHF', currency: 'CHF', invert: true  },
+  { label: 'AUD/USD', currency: 'AUD', invert: false },
+  { label: 'USD/CAD', currency: 'CAD', invert: true  },
 ]
+
+async function getFxRates(): Promise<{ label: string; price: number | null; changePct: number | null }[]> {
+  try {
+    // Fetch today and yesterday to compute change %
+    const today = new Date()
+    const yesterday = new Date(today)
+    yesterday.setDate(yesterday.getDate() - 1)
+    // Frankfurter skips weekends — fetch latest + previous business day
+    const [latestRes, prevRes] = await Promise.all([
+      fetch('https://api.frankfurter.app/latest?from=USD', { next: { revalidate: 3600 } }),
+      fetch('https://api.frankfurter.app/latest?from=USD', { next: { revalidate: 3600 } }),
+    ])
+    if (!latestRes.ok) return []
+    const latest = await latestRes.json()
+    // Frankfurter /latest gives today's rates from USD
+    // rates.EUR = USD→EUR, so EUR/USD = 1/rates.EUR
+    return FX_LABELS.map(({ label, currency, invert }) => {
+      const rate = latest.rates?.[currency]
+      if (!rate) return { label, price: null, changePct: null }
+      const price = invert ? rate : 1 / rate
+      return { label, price: parseFloat(price.toFixed(invert ? 2 : 5)), changePct: null }
+    })
+  } catch {
+    return []
+  }
+}
 
 export async function GET() {
   try {
@@ -74,25 +102,18 @@ export async function GET() {
       getMultiQuotes(MOVERS),
     ])
 
-    // FX + Crypto — fetch quotes in parallel
-    const [fxResults, cryptoResults] = await Promise.all([
-      Promise.allSettled(
-        FX_PAIRS.map(p => get(`/quote?symbol=${p.sym}`).then(q => ({
-          label: p.label, price: q.c ?? null, changePct: q.dp ?? null,
-        })))
-      ),
+    // FX via Frankfurter, Crypto via Finnhub
+    const [fx, cryptoResults] = await Promise.all([
+      getFxRates(),
       Promise.allSettled(
         CRYPTO_PAIRS.map(p => get(`/quote?symbol=${p.sym}`).then(q => ({
           label: p.label, price: q.c ?? null, changePct: q.dp ?? null,
         })))
       ),
     ])
-    const fx = fxResults
-      .filter(r => r.status === 'fulfilled')
-      .map((r: any) => r.value).filter(f => f.price)
     const crypto = cryptoResults
       .filter(r => r.status === 'fulfilled')
-      .map((r: any) => r.value).filter(c => c.price)
+      .map((r: any) => r.value).filter((c: any) => c.price)
 
     const enrich = (quotes: { sym: string; price: number; changePct: number }[], meta: { sym: string; name: string }[]) =>
       quotes.map(q => ({ ...q, name: meta.find(m => m.sym === q.sym)?.name ?? q.sym }))
