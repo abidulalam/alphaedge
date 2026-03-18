@@ -53,7 +53,7 @@ export default function Navbar() {
 
         {/* CENTER NAV */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 28, fontSize: 11, letterSpacing: 2, textTransform: 'uppercase' }}>
-          {[['Dashboard', '/dashboard'], ['Screener', '/screener'], ['Compare', '/compare']].map(([label, href]) => (
+          {[['Markets', '/markets'], ['Dashboard', '/dashboard'], ['Screener', '/screener'], ['Compare', '/compare']].map(([label, href]) => (
             <Link key={label} href={href} style={{ color: 'var(--text2)', transition: 'color 0.1s' }}
               onMouseEnter={e => (e.currentTarget.style.color = 'var(--text)')}
               onMouseLeave={e => (e.currentTarget.style.color = 'var(--text2)')}
