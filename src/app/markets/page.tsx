@@ -166,6 +166,20 @@ export default function Markets() {
                   </div>
                 ))}
               </Panel>
+
+              {data.crypto && data.crypto.length > 0 && (
+                <Panel title="Crypto" tag="// DCP">
+                  {data.crypto.map((c: any) => (
+                    <div key={c.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderBottom: '1px solid var(--border)' }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, fontFamily: mono }}>{c.label}</span>
+                      <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+                        <span style={{ fontSize: 13, fontFamily: mono }}>${price(c.price, c.price > 100 ? 2 : 4)}</span>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: pc(c.changePct), fontFamily: mono, width: 64, textAlign: 'right' }}>{pct(c.changePct)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </Panel>
+              )}
             </div>
           </div>
         </div>

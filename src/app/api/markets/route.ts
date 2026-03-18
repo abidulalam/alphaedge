@@ -48,6 +48,14 @@ const MOVERS = [
   'AMD','NFLX','JPM','V','ORCL','AVGO','LLY','UNH','XOM',
 ]
 
+const CRYPTO_PAIRS: { sym: string; label: string }[] = [
+  { sym: 'BINANCE:BTCUSDT',  label: 'BTC/USD'  },
+  { sym: 'BINANCE:ETHUSDT',  label: 'ETH/USD'  },
+  { sym: 'BINANCE:SOLUSDT',  label: 'SOL/USD'  },
+  { sym: 'BINANCE:BNBUSDT',  label: 'BNB/USD'  },
+  { sym: 'BINANCE:XRPUSDT',  label: 'XRP/USD'  },
+]
+
 const FX_PAIRS: { sym: string; label: string; base: string; quote: string }[] = [
   { sym: 'OANDA:EUR_USD', label: 'EUR/USD', base: 'EUR', quote: 'USD' },
   { sym: 'OANDA:GBP_USD', label: 'GBP/USD', base: 'GBP', quote: 'USD' },
@@ -66,19 +74,25 @@ export async function GET() {
       getMultiQuotes(MOVERS),
     ])
 
-    // FX — fetch each pair quote
-    const fxResults = await Promise.allSettled(
-      FX_PAIRS.map(p => get(`/quote?symbol=${p.sym}`).then(q => ({
-        label:     p.label,
-        price:     q.c ?? null,
-        changePct: q.dp ?? null,
-        change:    q.d  ?? null,
-      })))
-    )
+    // FX + Crypto — fetch quotes in parallel
+    const [fxResults, cryptoResults] = await Promise.all([
+      Promise.allSettled(
+        FX_PAIRS.map(p => get(`/quote?symbol=${p.sym}`).then(q => ({
+          label: p.label, price: q.c ?? null, changePct: q.dp ?? null,
+        })))
+      ),
+      Promise.allSettled(
+        CRYPTO_PAIRS.map(p => get(`/quote?symbol=${p.sym}`).then(q => ({
+          label: p.label, price: q.c ?? null, changePct: q.dp ?? null,
+        })))
+      ),
+    ])
     const fx = fxResults
       .filter(r => r.status === 'fulfilled')
-      .map((r: any) => r.value)
-      .filter(f => f.price)
+      .map((r: any) => r.value).filter(f => f.price)
+    const crypto = cryptoResults
+      .filter(r => r.status === 'fulfilled')
+      .map((r: any) => r.value).filter(c => c.price)
 
     const enrich = (quotes: { sym: string; price: number; changePct: number }[], meta: { sym: string; name: string }[]) =>
       quotes.map(q => ({ ...q, name: meta.find(m => m.sym === q.sym)?.name ?? q.sym }))
@@ -92,6 +106,7 @@ export async function GET() {
       fx,
       gainers: sortedMovers.filter(m => m.changePct > 0).slice(0, 6),
       losers:  sortedMovers.filter(m => m.changePct < 0).slice(0, 6),
+      crypto,
     })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })

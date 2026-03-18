@@ -3,12 +3,16 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 
 const COMMANDS: { cmd: string; desc: string; route: string }[] = [
-  { cmd: 'MKT',  desc: 'Market Overview',  route: '/markets'   },
-  { cmd: 'MKTS', desc: 'Market Overview',  route: '/markets'   },
-  { cmd: 'SCRN', desc: 'Stock Screener',   route: '/screener'  },
-  { cmd: 'CMP',  desc: 'Compare Stocks',   route: '/compare'   },
-  { cmd: 'HOME', desc: 'Home',             route: '/'          },
-  { cmd: 'DASH', desc: 'Dashboard',        route: '/dashboard' },
+  { cmd: 'MKT',   desc: 'Market Overview',    route: '/markets'   },
+  { cmd: 'MKTS',  desc: 'Market Overview',    route: '/markets'   },
+  { cmd: 'SCRN',  desc: 'Stock Screener',     route: '/screener'  },
+  { cmd: 'CMP',   desc: 'Compare Stocks',     route: '/compare'   },
+  { cmd: 'CALS',  desc: 'Economic Calendar',  route: '/calendar'  },
+  { cmd: 'ECO',   desc: 'Economic Calendar',  route: '/calendar'  },
+  { cmd: 'PORT',  desc: 'Portfolio Tracker',  route: '/portfolio' },
+  { cmd: 'ALRT',  desc: 'Price Alerts',       route: '/alerts'    },
+  { cmd: 'DASH',  desc: 'Dashboard',          route: '/dashboard' },
+  { cmd: 'HOME',  desc: 'Home',               route: '/'          },
 ]
 
 interface Suggestion {
