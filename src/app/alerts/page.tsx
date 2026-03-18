@@ -32,7 +32,7 @@ export default function AlertsPage() {
     if (alerts.length === 0) return
     setChecking(true)
     const active  = alerts.filter(a => !a.triggered)
-    const tickers = [...new Set(active.map(a => a.ticker))]
+    const tickers = Array.from(new Set(active.map(a => a.ticker)))
     const prices: Record<string, number> = {}
     await Promise.allSettled(
       tickers.map(t => fetch(`/api/quote?ticker=${t}`).then(r => r.json()).then(d => { if (d.price) prices[t] = d.price }))

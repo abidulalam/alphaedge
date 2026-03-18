@@ -38,7 +38,7 @@ export default function Portfolio() {
 
     // Fetch live prices for all tickers
     if (data && data.length > 0) {
-      const tickers = [...new Set(data.map((p: Position) => p.ticker))]
+      const tickers = Array.from(new Set(data.map((p: Position) => p.ticker)))
       const results = await Promise.allSettled(
         tickers.map(t => fetch(`/api/quote?ticker=${t}`).then(r => r.json()))
       )
