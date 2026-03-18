@@ -434,81 +434,123 @@ export default function Dashboard() {
                   </div>
                 )}
                 {tab === 'Quant Signals' && qs && (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-                    <div>
-                      <SHead label="Trend & Moving Averages" />
-                      <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 14px 8px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid var(--border)' }}>
-                          <span style={{ fontSize: 14, fontWeight: 600 }}>Overall Signal</span>
-                          <span style={{ fontSize: 18, fontWeight: 700, color: signalColor(qs.trend) }}>{qs.trend}</span>
+                  <div>
+                    {/* ── Composite signal header ── */}
+                    <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 8, padding: '16px 20px', marginBottom: 20 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                        <div>
+                          <div style={{ fontSize: 10, color: 'var(--text3)', fontFamily: mono, letterSpacing: 2, marginBottom: 4 }}>COMPOSITE SIGNAL</div>
+                          <div style={{ fontSize: 26, fontWeight: 800, color: signalColor(qs.trend), letterSpacing: 1 }}>{qs.trend}</div>
                         </div>
-                        {[
-                          { label: 'SMA 20', value: qs.sma20 ? '$' + qs.sma20 : '—', above: data.price && qs.sma20 ? data.price > qs.sma20 : null },
-                          { label: 'SMA 50', value: qs.sma50 ? '$' + qs.sma50 : '—', above: data.price && qs.sma50 ? data.price > qs.sma50 : null },
-                          { label: 'SMA 200', value: qs.sma200 ? '$' + qs.sma200 : '—', above: data.price && qs.sma200 ? data.price > qs.sma200 : null },
-                        ].map(s => (
-                          <div key={s.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
-                            <span style={{ fontSize: 13, color: 'var(--text2)' }}>{s.label}</span>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                              <span style={{ fontFamily: mono, fontSize: 13 }}>{s.value}</span>
-                              {s.above != null && (
-                                <span style={{ fontSize: 11, padding: '1px 7px', borderRadius: 3, background: s.above ? 'rgba(255,85,0,.12)' : 'rgba(255,77,77,.12)', color: s.above ? 'var(--green)' : 'var(--red)' }}>
-                                  {s.above ? 'ABOVE' : 'BELOW'}
-                                </span>
-                              )}
+                        {qs.goldenCross && <span style={{ fontSize: 11, padding: '4px 10px', border: '1px solid var(--green)', color: 'var(--green)', borderRadius: 4, fontFamily: mono, letterSpacing: 1 }}>✦ GOLDEN CROSS</span>}
+                        {qs.deathCross  && <span style={{ fontSize: 11, padding: '4px 10px', border: '1px solid var(--red)',   color: 'var(--red)',   borderRadius: 4, fontFamily: mono, letterSpacing: 1 }}>✦ DEATH CROSS</span>}
+                        {qs.macdCrossBull && <span style={{ fontSize: 11, padding: '4px 10px', border: '1px solid var(--green)', color: 'var(--green)', borderRadius: 4, fontFamily: mono, letterSpacing: 1 }}>↑ MACD BULL X</span>}
+                        {qs.macdCrossBear && <span style={{ fontSize: 11, padding: '4px 10px', border: '1px solid var(--red)',   color: 'var(--red)',   borderRadius: 4, fontFamily: mono, letterSpacing: 1 }}>↓ MACD BEAR X</span>}
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16 }}>
+                        {([
+                          { label: 'TREND',     score: qs.scores.trend,         desc: 'MA alignment & MACD' },
+                          { label: 'MOMENTUM',  score: qs.scores.momentum,      desc: '1M–1Y price returns' },
+                          { label: 'MEAN REV.', score: qs.scores.meanReversion,  desc: 'RSI · Stoch · Z-score' },
+                          { label: 'RISK',      score: qs.scores.risk,           desc: 'Vol · Drawdown' },
+                        ] as const).map(f => {
+                          const c = f.score >= 70 ? 'var(--green)' : f.score >= 45 ? 'var(--amber)' : 'var(--red)'
+                          return (
+                            <div key={f.label}>
+                              <div style={{ fontSize: 10, letterSpacing: 1.5, color: 'var(--text3)', fontFamily: mono, marginBottom: 6 }}>{f.label}</div>
+                              <div style={{ fontSize: 22, fontWeight: 700, fontFamily: mono, color: c }}>{f.score}</div>
+                              <div style={{ height: 3, background: 'var(--border2)', borderRadius: 2, margin: '6px 0' }}>
+                                <div style={{ height: '100%', width: f.score + '%', background: c, borderRadius: 2 }} />
+                              </div>
+                              <div style={{ fontSize: 10, color: 'var(--text4)', fontFamily: mono }}>{f.desc}</div>
                             </div>
-                          </div>
-                        ))}
-                      </div>
-
-                      <SHead label="Momentum" />
-                      <div style={{ border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
-                        {[
-                          { l: '1 Month', v: qs.momentum.m1 },
-                          { l: '3 Month', v: qs.momentum.m3 },
-                          { l: '6 Month', v: qs.momentum.m6 },
-                          { l: '1 Year', v: qs.momentum.m1y },
-                        ].map((m, i) => (
-                          <div key={m.l} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', borderBottom: i < 3 ? '1px solid var(--border)' : 'none', background: i % 2 === 0 ? 'var(--bg2)' : 'var(--bg3)' }}>
-                            <span style={{ fontSize: 13, color: 'var(--text2)' }}>{m.l}</span>
-                            <span style={{ fontFamily: mono, fontSize: 14, fontWeight: 500, color: m.v == null ? 'var(--text3)' : m.v >= 0 ? 'var(--green)' : 'var(--red)' }}>
-                              {m.v == null ? '—' : (m.v >= 0 ? '+' : '') + m.v.toFixed(2) + '%'}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-
-                      <SHead label="Volume" />
-                      <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 14px 8px' }}>
-                        <SRow label="Vol Trend (5d/20d)" value={(qs.volumeTrend >= 0 ? '+' : '') + qs.volumeTrend.toFixed(1) + '%'} bar={50 + qs.volumeTrend} barColor={qs.volumeTrend > 20 ? 'var(--accent)' : qs.volumeTrend < -20 ? 'var(--red)' : 'var(--amber)'} />
-                        <SRow label="Volume" value={data.volume ? (data.volume / 1e6).toFixed(1) + 'M' : '—'} />
+                          )
+                        })}
                       </div>
                     </div>
 
-                    <div>
-                      <SHead label="Oscillators" />
-                      <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 14px 8px' }}>
-                        <SRow label="RSI (14)" value={qs.rsi.toFixed(1)} bar={qs.rsi} barColor={qs.rsi > 70 ? 'var(--red)' : qs.rsi < 30 ? 'var(--accent)' : 'var(--amber)'} />
-                        <SRow label="MACD" value={(qs.macd >= 0 ? '+' : '') + qs.macd.toFixed(3)} barColor={qs.macd >= 0 ? 'var(--green)' : 'var(--red)'} />
-                        <SRow label="MACD Signal" value={(qs.macdSignal >= 0 ? '+' : '') + qs.macdSignal.toFixed(3)} />
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                      {/* LEFT */}
+                      <div>
+                        <SHead label="Trend & Moving Averages" />
+                        <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 14px 8px' }}>
+                          {[
+                            { label: 'SMA 20',  val: qs.sma20,  above: data.price && qs.sma20  ? data.price > qs.sma20  : null },
+                            { label: 'SMA 50',  val: qs.sma50,  above: data.price && qs.sma50  ? data.price > qs.sma50  : null },
+                            { label: 'SMA 200', val: qs.sma200, above: data.price && qs.sma200 ? data.price > qs.sma200 : null },
+                          ].map(s => (
+                            <div key={s.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
+                              <span style={{ fontSize: 13, color: 'var(--text2)' }}>{s.label}</span>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                <span style={{ fontFamily: mono, fontSize: 13 }}>{s.val ? '$' + s.val : '—'}</span>
+                                {s.above != null && (
+                                  <span style={{ fontSize: 10, padding: '1px 7px', borderRadius: 3, background: s.above ? 'rgba(0,217,126,.1)' : 'rgba(255,77,77,.1)', color: s.above ? 'var(--green)' : 'var(--red)', fontFamily: mono }}>
+                                    {s.above ? '▲ ABOVE' : '▼ BELOW'}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0' }}>
+                            <span style={{ fontSize: 13, color: 'var(--text2)' }}>MACD Histogram</span>
+                            <span style={{ fontFamily: mono, fontSize: 13, color: qs.macdHist >= 0 ? 'var(--green)' : 'var(--red)', fontWeight: 600 }}>
+                              {qs.macdHist >= 0 ? '+' : ''}{qs.macdHist.toFixed(3)}
+                            </span>
+                          </div>
+                        </div>
+
+                        <SHead label="Price Momentum" />
+                        <div style={{ border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
+                          {[
+                            { l: '1 Week',  v: qs.momentum.m1w },
+                            { l: '1 Month', v: qs.momentum.m1  },
+                            { l: '3 Month', v: qs.momentum.m3  },
+                            { l: '6 Month', v: qs.momentum.m6  },
+                            { l: '12 Month',v: qs.momentum.m1y },
+                          ].map((m, i, arr) => (
+                            <div key={m.l} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 14px', borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none', background: i % 2 === 0 ? 'var(--bg2)' : 'var(--bg3)' }}>
+                              <span style={{ fontSize: 13, color: 'var(--text2)' }}>{m.l}</span>
+                              <span style={{ fontFamily: mono, fontSize: 13, fontWeight: 600, color: m.v == null ? 'var(--text3)' : m.v >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                                {m.v == null ? '—' : (m.v >= 0 ? '+' : '') + m.v.toFixed(2) + '%'}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+
+                        <SHead label="Volume & Structure" />
+                        <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 14px 8px' }}>
+                          <SRow label="Vol Trend (5d/20d)" value={(qs.volumeTrend >= 0 ? '+' : '') + qs.volumeTrend.toFixed(1) + '%'} bar={50 + Math.min(50, Math.max(-50, qs.volumeTrend))} barColor={qs.volumeTrend > 20 ? 'var(--accent)' : qs.volumeTrend < -20 ? 'var(--red)' : 'var(--amber)'} />
+                          <SRow label="OBV Trend" value={qs.obvTrend.toUpperCase()} barColor={qs.obvTrend === 'bullish' ? 'var(--green)' : qs.obvTrend === 'bearish' ? 'var(--red)' : 'var(--text3)'} />
+                          <SRow label="52W Position" value={qs.pos52w.toFixed(1) + '%'} bar={qs.pos52w} barColor="var(--accent)" />
+                        </div>
                       </div>
 
-                      <SHead label="Bollinger Bands" />
-                      <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 14px 8px' }}>
-                        <SRow label="Upper Band" value={'$' + qs.bbUpper.toFixed(2)} />
-                        <SRow label="Middle (SMA20)" value={qs.sma20 ? '$' + qs.sma20.toFixed(2) : '—'} />
-                        <SRow label="Lower Band" value={'$' + qs.bbLower.toFixed(2)} />
-                        <SRow label="BB Position" value={(qs.bbPosition * 100).toFixed(0) + '%'} bar={qs.bbPosition * 100} barColor={qs.bbPosition > 0.8 ? 'var(--red)' : qs.bbPosition < 0.2 ? 'var(--accent)' : 'var(--amber)'} />
-                      </div>
+                      {/* RIGHT */}
+                      <div>
+                        <SHead label="Oscillators" />
+                        <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 14px 8px' }}>
+                          <SRow label="RSI (14)" value={qs.rsi.toFixed(1) + (qs.rsi > 70 ? ' — Overbought' : qs.rsi < 30 ? ' — Oversold' : '')} bar={qs.rsi} barColor={qs.rsi > 70 ? 'var(--red)' : qs.rsi < 30 ? 'var(--green)' : 'var(--amber)'} />
+                          <SRow label="Stochastic %K" value={qs.stochK.toFixed(1) + (qs.stochK > 80 ? ' — OB' : qs.stochK < 20 ? ' — OS' : '')} bar={qs.stochK} barColor={qs.stochK > 80 ? 'var(--red)' : qs.stochK < 20 ? 'var(--green)' : 'var(--amber)'} />
+                          <SRow label="Stochastic %D" value={qs.stochD.toFixed(1)} bar={qs.stochD} barColor="var(--text3)" />
+                          <SRow label="MACD" value={(qs.macd >= 0 ? '+' : '') + qs.macd.toFixed(3)} barColor={qs.macd >= 0 ? 'var(--green)' : 'var(--red)'} />
+                          <SRow label="MACD Signal" value={(qs.macdSignal >= 0 ? '+' : '') + qs.macdSignal.toFixed(3)} />
+                        </div>
 
-                      <SHead label="Mean Reversion" />
-                      <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 14px 8px' }}>
-                        <SRow label="Z-Score (20d)" value={qs.zScore.toFixed(2)} barColor={Math.abs(qs.zScore) > 2 ? 'var(--red)' : 'var(--accent)'} />
-                        <SRow label="52W Position" value={qs.pos52w.toFixed(1) + '%'} bar={qs.pos52w} barColor="var(--accent2)" />
-                        <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 8, lineHeight: 1.6 }}>
-                          {Math.abs(qs.zScore) > 2
-                            ? 'Z-score of ' + qs.zScore.toFixed(2) + ' indicates ' + (qs.zScore > 0 ? 'overbought — mean reversion likely.' : 'oversold — potential bounce candidate.')
-                            : 'Z-score within normal range — no extreme deviation from 20-day mean.'}
+                        <SHead label="Mean Reversion" />
+                        <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 14px 8px' }}>
+                          <SRow label="BB Upper" value={'$' + qs.bbUpper.toFixed(2)} />
+                          <SRow label="BB Middle (SMA20)" value={qs.sma20 ? '$' + qs.sma20 : '—'} />
+                          <SRow label="BB Lower" value={'$' + qs.bbLower.toFixed(2)} />
+                          <SRow label="BB %B (position)" value={(qs.bbPosition * 100).toFixed(0) + '%'} bar={qs.bbPosition * 100} barColor={qs.bbPosition > 0.8 ? 'var(--red)' : qs.bbPosition < 0.2 ? 'var(--green)' : 'var(--amber)'} />
+                          <SRow label="BB Width (squeeze)" value={qs.bbWidth.toFixed(2) + '%'} barColor={qs.bbWidth < 5 ? 'var(--amber)' : 'var(--text3)'} />
+                          <SRow label="Z-Score (20d)" value={qs.zScore.toFixed(2)} barColor={Math.abs(qs.zScore) > 2 ? 'var(--red)' : Math.abs(qs.zScore) > 1 ? 'var(--amber)' : 'var(--green)'} />
+                        </div>
+
+                        <SHead label="Volatility & Risk" />
+                        <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 14px 8px' }}>
+                          <SRow label="Hist. Vol 20d (ann.)" value={qs.hv20.toFixed(1) + '%'} barColor={qs.hv20 > 50 ? 'var(--red)' : qs.hv20 > 30 ? 'var(--amber)' : 'var(--green)'} />
+                          <SRow label="ATR (14)" value={'$' + qs.atr14.toFixed(2) + ' (' + qs.atrPct.toFixed(1) + '%)'} barColor="var(--text3)" />
+                          <SRow label="Max Drawdown (1Y)" value={qs.maxDrawdown252.toFixed(1) + '%'} barColor={qs.maxDrawdown252 > 40 ? 'var(--red)' : qs.maxDrawdown252 > 20 ? 'var(--amber)' : 'var(--green)'} />
                         </div>
                       </div>
                     </div>

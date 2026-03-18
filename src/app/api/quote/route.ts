@@ -138,7 +138,7 @@ export async function GET(req: NextRequest) {
       dividendYield:    m?.dividendYieldIndicatedAnnual   ?? null,
       fiftyTwoWeekHigh: m?.['52WeekHigh']                 ?? null,
       fiftyTwoWeekLow:  m?.['52WeekLow']                  ?? null,
-      evToEbitda:       m?.['enterpriseValueEbitdaTTM']    ?? null,
+      evToEbitda:       m?.['enterpriseValueEbitdaTTM'] ?? m?.['evToEbitdaTTM'] ?? m?.['entEV_EBITDACurrent'] ?? null,
       priceToBook:      m?.['pbAnnual']                   ?? null,
       priceToSales:     m?.['psTTM']                      ?? null,
       pegRatio:         m?.['pegRatio']                   ?? null,
