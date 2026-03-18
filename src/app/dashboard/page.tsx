@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic'
 import ScoreBar from '@/components/ScoreBar'
 import Navbar from '@/components/Navbar'
 
-const StockChart = dynamic(() => import('@/components/StockChart'), { ssr: false })
+const AdvancedChart = dynamic(() => import('@/components/AdvancedChart'), { ssr: false })
 
 const DEFAULT_WATCHLIST = ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'META', 'GOOGL']
 const TABS = ['Overview', 'Quant Signals', 'Financials', 'Earnings', 'Insiders', 'AI Report', 'News']
@@ -283,11 +283,9 @@ export default function Dashboard() {
                 {tab === 'Overview' && (
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: 16 }}>
                     <div>
-                      {data.chartData && data.chartData.length > 0 && (
-                        <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, padding: '12px 10px 6px', marginBottom: 12 }}>
-                          <StockChart data={data.chartData} positive={up} />
-                        </div>
-                      )}
+                      <div style={{ marginBottom: 16 }}>
+                        <AdvancedChart ticker={data.ticker ?? ticker} />
+                      </div>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginBottom: 12 }}>
                         <MBox label="P/E (TTM)" value={data.pe ? data.pe.toFixed(1) : '—'} />
                         <MBox label="EPS (TTM)" value={data.eps ? '$' + data.eps.toFixed(2) : '—'} />
