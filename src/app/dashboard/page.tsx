@@ -284,7 +284,7 @@ export default function Dashboard() {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: 16 }}>
                     <div>
                       <div style={{ marginBottom: 16 }}>
-                        <AdvancedChart ticker={data.ticker ?? ticker} />
+                        <AdvancedChart ticker={ticker} initialBars={data.ohlcv ?? []} />
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginBottom: 12 }}>
                         <MBox label="P/E (TTM)" value={data.pe ? data.pe.toFixed(1) : '—'} />

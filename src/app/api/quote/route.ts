@@ -52,6 +52,7 @@ export async function GET(req: NextRequest) {
       }
       const bars = cd.t.map((ts: number, i: number) => ({
         t: ts * 1000,
+        o: cd.o?.[i] ?? cd.c?.[i] ?? null,
         c: cd.c?.[i] ?? null,
         h: cd.h?.[i] ?? cd.c?.[i] ?? null,
         l: cd.l?.[i] ?? cd.c?.[i] ?? null,
@@ -62,6 +63,15 @@ export async function GET(req: NextRequest) {
     })()
 
     const chartData    = candleData.map((d: any) => ({ t: d.t, c: d.c }))
+    // Full OHLCV in unix seconds (for lightweight-charts which expects seconds, not ms)
+    const ohlcv = candleData.map((d: any) => ({
+      time:   Math.floor(d.t / 1000),
+      open:   d.o ?? d.c,
+      high:   d.h ?? d.c,
+      low:    d.l ?? d.c,
+      close:  d.c,
+      volume: d.v ?? 0,
+    }))
     const quantSignals = computeQuantSignals(candleData)
     console.log(`[${t}] quantSignals computed: ${quantSignals ? quantSignals.trend : 'null (insufficient data)'}`)
 
@@ -149,6 +159,7 @@ export async function GET(req: NextRequest) {
       insiderTransactions: insiderTx,
       peers: (Array.isArray(peers) ? peers : []).slice(0, 8),
       chartData,
+      ohlcv,
       news: (Array.isArray(n) ? n : []).slice(0, 8).map((item: any) => ({
         title:     item.headline,
         url:       item.url,

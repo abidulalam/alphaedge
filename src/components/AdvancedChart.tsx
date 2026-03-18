@@ -21,6 +21,7 @@ interface Bar {
 
 interface Props {
   ticker: string
+  initialBars?: Bar[]
 }
 
 function sma(data: number[], period: number): (number | null)[] {
@@ -42,14 +43,14 @@ function bollingerBands(closes: number[], period = 20, stdDev = 2) {
   })
 }
 
-export default function AdvancedChart({ ticker }: Props) {
+export default function AdvancedChart({ ticker, initialBars }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const chartRef     = useRef<any>(null)
 
-  const [bars, setBars]           = useState<Bar[]>([])
-  const [tf, setTf]               = useState('6M')
+  const [bars, setBars]           = useState<Bar[]>(initialBars ?? [])
+  const [tf, setTf]               = useState('1Y')
   const [chartType, setChartType] = useState('candlestick')
-  const [loading, setLoading]     = useState(true)
+  const [loading, setLoading]     = useState(!initialBars || initialBars.length === 0)
   const [error, setError]         = useState<string | null>(null)
   const [showSMA20, setShowSMA20]   = useState(true)
   const [showSMA50, setShowSMA50]   = useState(true)
@@ -78,8 +79,16 @@ export default function AdvancedChart({ ticker }: Props) {
     }
   }, [ticker])
 
-  // Reload when ticker or timeframe changes
-  useEffect(() => { fetchBars(tf) }, [tf, ticker, fetchBars])
+  // On mount: use initialBars if available, otherwise fetch. On tf/ticker change: always fetch.
+  const isFirstMount = useRef(true)
+  useEffect(() => {
+    if (isFirstMount.current) {
+      isFirstMount.current = false
+      // If we have initial data (1Y daily from quote API), skip the fetch
+      if (initialBars && initialBars.length > 0) return
+    }
+    fetchBars(tf)
+  }, [tf, ticker, fetchBars, initialBars])
 
   // Build and render chart whenever bars or settings change
   useEffect(() => {
