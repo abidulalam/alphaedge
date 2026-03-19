@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 
 const mono = 'IBM Plex Mono, monospace'
 
@@ -25,6 +25,7 @@ export const GLOSSARY: Record<string, { full: string; desc: string }> = {
   'ROA':       { full: 'Return on Assets', desc: 'Net income as a percentage of total assets. Measures how efficiently assets generate profit. Above 5% is generally solid.' },
   'EV/EBITDA': { full: 'Enterprise Value / EBITDA', desc: "Company's total value (market cap + net debt) divided by operating earnings. A key valuation multiple in M&A. Lower = cheaper; typical range is 8–15x depending on sector." },
   'EBITDA':    { full: 'Earnings Before Interest, Taxes, Depreciation & Amortization', desc: 'Proxy for operating cash flow, widely used to compare companies across different capital structures and tax regimes.' },
+  'FCF':       { full: 'Free Cash Flow', desc: 'Cash generated after capital expenditures (operating cash flow minus capex). The most direct measure of actual cash a company generates for shareholders.' },
   'TTM':       { full: 'Trailing Twelve Months', desc: 'Financial data from the most recent 12-month period, giving the most current view of performance rather than the last fiscal year.' },
   'YoY':       { full: 'Year-over-Year', desc: 'Compares a metric to the same period in the prior year, filtering out seasonality.' },
   'IPO':       { full: 'Initial Public Offering', desc: "The date a company first sold its shares on a public stock exchange." },
@@ -61,28 +62,47 @@ interface AbbrProps {
 }
 
 export default function Abbr({ term, children, width = 240, below = false }: AbbrProps) {
-  const [visible, setVisible] = useState(false)
+  const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null)
+  const ref = useRef<HTMLSpanElement>(null)
   const entry = GLOSSARY[term]
   if (!entry) return <>{children ?? term}</>
 
+  const handleMouseEnter = () => {
+    if (ref.current) {
+      const rect = ref.current.getBoundingClientRect()
+      setTooltipPos({
+        x: rect.left + rect.width / 2,
+        y: below ? rect.bottom + 6 : rect.top - 6,
+      })
+    }
+  }
+
+  // Clamp x so tooltip stays within viewport
+  const vw = typeof window !== 'undefined' ? window.innerWidth : 1200
+  const clampedX = tooltipPos
+    ? Math.max(width / 2 + 8, Math.min(vw - width / 2 - 8, tooltipPos.x))
+    : 0
+
   return (
     <span
+      ref={ref}
       style={{ position: 'relative', display: 'inline-block', cursor: 'help' }}
-      onMouseEnter={() => setVisible(true)}
-      onMouseLeave={() => setVisible(false)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={() => setTooltipPos(null)}
     >
       <span style={{ borderBottom: '1px dotted rgba(255,255,255,0.35)' }}>
         {children ?? term}
       </span>
-      {visible && (
+      {tooltipPos && (
         <div style={{
-          position: 'absolute',
+          position: 'fixed',
+          left: clampedX,
           ...(below
-            ? { top: 'calc(100% + 6px)' }
-            : { bottom: 'calc(100% + 6px)' }
+            ? { top: tooltipPos.y }
+            : { top: tooltipPos.y, transform: 'translateX(-50%) translateY(-100%)' }
           ),
-          left: '50%',
-          transform: 'translateX(-50%)',
+          ...(!below && { transform: 'translateX(-50%) translateY(-100%)' }),
+          ...(below && { transform: 'translateX(-50%)' }),
           width,
           background: '#111120',
           border: '1px solid rgba(255,255,255,0.12)',

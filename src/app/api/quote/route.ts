@@ -8,40 +8,44 @@ import {
 // Small delay helper to stagger requests and avoid rate limits
 const delay = (ms: number) => new Promise(r => setTimeout(r, ms))
 
-// Yahoo Finance quoteSummary — fills in fundamentals missing from Finnhub free plan
+const YAHOO_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+  'Accept': 'application/json',
+}
+
+// Yahoo Finance v7 quote — no crumb needed, returns valuation ratios reliably
 async function yahooFundamentals(ticker: string) {
-  const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(ticker)}?modules=defaultKeyStatistics,financialData`
-  const res = await fetch(url, {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-      'Accept': 'application/json',
-    },
-    next: { revalidate: 3600 },
-  })
-  if (!res.ok) throw new Error(`Yahoo fundamentals ${res.status}`)
+  const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(ticker)}&formatted=false`
+  const res = await fetch(url, { headers: YAHOO_HEADERS, next: { revalidate: 3600 } })
+  if (!res.ok) throw new Error(`Yahoo v7 ${res.status}`)
   const json = await res.json()
-  const r = json?.quoteSummary?.result?.[0]
-  if (!r) throw new Error('No Yahoo fundamentals result')
-  const ks = r.defaultKeyStatistics ?? {}
-  const fd = r.financialData ?? {}
+  const r = json?.quoteResponse?.result?.[0]
+  if (!r) throw new Error('No Yahoo v7 result')
   return {
-    evToEbitda:   ks.enterpriseToEbitda?.raw   ?? null,
-    pegRatio:     ks.pegRatio?.raw             ?? null,
-    priceToBook:  ks.priceToBook?.raw          ?? null,
-    beta:         ks.beta?.raw                 ?? null,
-    profitMargins: fd.profitMargins?.raw       ?? null,
-    revenueGrowth: fd.revenueGrowth?.raw       ?? null,
+    evToEbitda:    r.enterpriseToEbitda ?? null,
+    pegRatio:      r.pegRatio           ?? null,
+    priceToBook:   r.priceToBook        ?? null,
+    beta:          r.beta               ?? null,
+    profitMargins: r.profitMargins      ?? null,
+    revenueGrowth: r.revenueGrowth      ?? null,
   }
+}
+
+// Yahoo Finance quoteSummary financialData — for free cash flow
+async function yahooFreeCashflow(ticker: string): Promise<number | null> {
+  const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(ticker)}?modules=financialData`
+  const res = await fetch(url, { headers: YAHOO_HEADERS, next: { revalidate: 3600 } })
+  if (!res.ok) return null
+  const json = await res.json()
+  const fd = json?.quoteSummary?.result?.[0]?.financialData ?? {}
+  return fd.freeCashflow?.raw ?? null
 }
 
 // Yahoo Finance fallback for daily candle data (free, no key, reliable server-side)
 async function yahooDailyCandles(ticker: string) {
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?range=1y&interval=1d&includePrePost=false`
   const res = await fetch(url, {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-      'Accept': 'application/json',
-    },
+    headers: YAHOO_HEADERS,
     next: { revalidate: 3600 },
   })
   if (!res.ok) throw new Error(`Yahoo ${res.status}`)
@@ -79,10 +83,11 @@ export async function GET(req: NextRequest) {
     // Small stagger before batch 2 to avoid rate limit
     await delay(150)
 
-    // Batch 2: candles + Yahoo fundamentals in parallel
-    const [candlesR, yahooFundR] = await Promise.all([
+    // Batch 2: candles + Yahoo fundamentals + free cash flow in parallel
+    const [candlesR, yahooFundR, freeCashflow] = await Promise.all([
       getCandles(t, 400).then(v => ({ status: 'fulfilled' as const, value: v })).catch(e => ({ status: 'rejected' as const, reason: e })),
       yahooFundamentals(t).catch(() => null),
+      yahooFreeCashflow(t).catch(() => null),
     ])
 
     await delay(150)
@@ -211,6 +216,7 @@ export async function GET(req: NextRequest) {
       debtToEquity:     m?.['totalDebt/totalEquityAnnual'] ?? null,
       currentRatio:     m?.currentRatioAnnual             ?? null,
       revenuePerShare:  m?.revenuePerShareTTM             ?? null,
+      freeCashflow:     freeCashflow,
       moatScore:        computeMoatScore(marketCap, profitMar),
       growthScore:      computeGrowthScore(revGrowth, quantSignals?.momentum?.m1y ?? null),
       quantSignals,
