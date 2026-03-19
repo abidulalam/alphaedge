@@ -99,6 +99,7 @@ export default function Dashboard() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [addInput, setAddInput] = useState('')
   const [showAdd, setShowAdd] = useState(false)
+  const [wlOpen, setWlOpen] = useState(true)
 
   useEffect(() => {
     try {
@@ -171,13 +172,18 @@ export default function Dashboard() {
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
         {/* SIDEBAR */}
-        <aside style={{ width: 240, flexShrink: 0, background: 'var(--bg2)', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', fontFamily: mono, fontSize: 10, color: 'var(--text3)', letterSpacing: 2, textTransform: 'uppercase', borderBottom: '1px solid var(--border)' }}>
-            <span>Watchlist ({watchlist.length})</span>
-            <button onClick={() => setShowAdd(s => !s)} style={{ color: 'var(--accent)', fontSize: 18, lineHeight: 1 }}>+</button>
+        <aside style={{ width: wlOpen ? 240 : 40, flexShrink: 0, background: 'var(--bg2)', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden', transition: 'width 0.2s ease' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 10px 10px 14px', fontFamily: mono, fontSize: 10, color: 'var(--text3)', letterSpacing: 2, textTransform: 'uppercase', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+            {wlOpen && <span style={{ whiteSpace: 'nowrap', overflow: 'hidden' }}>Watchlist ({watchlist.length})</span>}
+            <div style={{ display: 'flex', gap: 6, marginLeft: wlOpen ? 0 : 'auto', marginRight: wlOpen ? 0 : 'auto' }}>
+              {wlOpen && <button onClick={() => setShowAdd(s => !s)} style={{ color: 'var(--accent)', fontSize: 18, lineHeight: 1 }} title="Add ticker">+</button>}
+              <button onClick={() => { setWlOpen(o => !o); setShowAdd(false) }} style={{ color: 'var(--text3)', fontSize: 14, lineHeight: 1, padding: '0 2px' }} title={wlOpen ? 'Collapse watchlist' : 'Expand watchlist'}>
+                {wlOpen ? '‹' : '›'}
+              </button>
+            </div>
           </div>
 
-          {showAdd && (
+          {wlOpen && showAdd && (
             <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 6 }}>
               <input
                 value={addInput}
@@ -192,8 +198,8 @@ export default function Dashboard() {
             </div>
           )}
 
-          <div style={{ flex: 1, overflowY: 'auto' }}>
-            {watchlist.map(sym => {
+          <div style={{ flex: 1, overflowY: wlOpen ? 'auto' : 'hidden' }}>
+            {wlOpen && watchlist.map(sym => {
               const w = watchData[sym]
               const pct = w?.changePct ?? null
               const px = w?.price ?? null
@@ -296,10 +302,10 @@ export default function Dashboard() {
                         <MBox label={<Abbr term="PEG">PEG Ratio</Abbr>} value={data.pegRatio ? data.pegRatio.toFixed(2) : '—'} />
                         <MBox label={<Abbr term="ROE">ROE (TTM)</Abbr>} value={data.roeTTM ? data.roeTTM.toFixed(1) + '%' : '—'} color={data.roeTTM && data.roeTTM > 15 ? 'var(--accent)' : undefined} />
                         <MBox label={<Abbr term="ROA">ROA (TTM)</Abbr>} value={data.roaTTM ? data.roaTTM.toFixed(1) + '%' : '—'} />
-                        <MBox label="52W High" value={data.fiftyTwoWeekHigh ? '$' + data.fiftyTwoWeekHigh.toFixed(2) : '—'} />
-                        <MBox label="52W Low" value={data.fiftyTwoWeekLow ? '$' + data.fiftyTwoWeekLow.toFixed(2) : '—'} />
-                        <MBox label="Beta" value={data.beta ? data.beta.toFixed(2) : '—'} />
-                        <MBox label="Div Yield" value={data.dividendYield ? data.dividendYield.toFixed(2) + '%' : '—'} />
+                        <MBox label={<Abbr term="52W High">52W High</Abbr>} value={data.fiftyTwoWeekHigh ? '$' + data.fiftyTwoWeekHigh.toFixed(2) : '—'} />
+                        <MBox label={<Abbr term="52W Low">52W Low</Abbr>} value={data.fiftyTwoWeekLow ? '$' + data.fiftyTwoWeekLow.toFixed(2) : '—'} />
+                        <MBox label={<Abbr term="Beta">Beta</Abbr>} value={data.beta ? data.beta.toFixed(2) : '—'} />
+                        <MBox label={<Abbr term="Div Yield">Div Yield</Abbr>} value={data.dividendYield ? data.dividendYield.toFixed(2) + '%' : '—'} />
                       </div>
                       {data.peers && data.peers.length > 0 && (
                         <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, padding: '12px 14px' }}>

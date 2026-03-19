@@ -8,6 +8,32 @@ import {
 // Small delay helper to stagger requests and avoid rate limits
 const delay = (ms: number) => new Promise(r => setTimeout(r, ms))
 
+// Yahoo Finance quoteSummary — fills in fundamentals missing from Finnhub free plan
+async function yahooFundamentals(ticker: string) {
+  const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(ticker)}?modules=defaultKeyStatistics,financialData`
+  const res = await fetch(url, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+      'Accept': 'application/json',
+    },
+    next: { revalidate: 3600 },
+  })
+  if (!res.ok) throw new Error(`Yahoo fundamentals ${res.status}`)
+  const json = await res.json()
+  const r = json?.quoteSummary?.result?.[0]
+  if (!r) throw new Error('No Yahoo fundamentals result')
+  const ks = r.defaultKeyStatistics ?? {}
+  const fd = r.financialData ?? {}
+  return {
+    evToEbitda:   ks.enterpriseToEbitda?.raw   ?? null,
+    pegRatio:     ks.pegRatio?.raw             ?? null,
+    priceToBook:  ks.priceToBook?.raw          ?? null,
+    beta:         ks.beta?.raw                 ?? null,
+    profitMargins: fd.profitMargins?.raw       ?? null,
+    revenueGrowth: fd.revenueGrowth?.raw       ?? null,
+  }
+}
+
 // Yahoo Finance fallback for daily candle data (free, no key, reliable server-side)
 async function yahooDailyCandles(ticker: string) {
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?range=1y&interval=1d&includePrePost=false`
@@ -53,8 +79,11 @@ export async function GET(req: NextRequest) {
     // Small stagger before batch 2 to avoid rate limit
     await delay(150)
 
-    // Batch 2: candles first, alone — most important for quant signals
-    const candlesR = await getCandles(t, 400).then(v => ({ status: 'fulfilled' as const, value: v })).catch(e => ({ status: 'rejected' as const, reason: e }))
+    // Batch 2: candles + Yahoo fundamentals in parallel
+    const [candlesR, yahooFundR] = await Promise.all([
+      getCandles(t, 400).then(v => ({ status: 'fulfilled' as const, value: v })).catch(e => ({ status: 'rejected' as const, reason: e })),
+      yahooFundamentals(t).catch(() => null),
+    ])
 
     await delay(150)
 
@@ -169,14 +198,14 @@ export async function GET(req: NextRequest) {
       eps:              m?.epsTTM                         ?? null,
       revenueGrowth:    revGrowth ? revGrowth / 100 : null,
       profitMargins:    profitMar ? profitMar / 100 : null,
-      beta:             m?.beta                           ?? null,
+      beta:             m?.beta                           ?? yahooFundR?.beta ?? null,
       dividendYield:    m?.dividendYieldIndicatedAnnual   ?? null,
       fiftyTwoWeekHigh: m?.['52WeekHigh']                 ?? null,
       fiftyTwoWeekLow:  m?.['52WeekLow']                  ?? null,
-      evToEbitda:       m?.['enterpriseValueEbitdaTTM'] ?? m?.['evToEbitdaTTM'] ?? m?.['entEV_EBITDACurrent'] ?? null,
-      priceToBook:      m?.['pbAnnual']                   ?? null,
+      evToEbitda:       m?.['enterpriseValueEbitdaTTM'] ?? m?.['evToEbitdaTTM'] ?? m?.['entEV_EBITDACurrent'] ?? yahooFundR?.evToEbitda ?? null,
+      priceToBook:      m?.['pbAnnual']                   ?? yahooFundR?.priceToBook  ?? null,
       priceToSales:     m?.['psTTM']                      ?? null,
-      pegRatio:         m?.['pegRatio']                   ?? null,
+      pegRatio:         m?.['pegRatio']                   ?? yahooFundR?.pegRatio     ?? null,
       roeTTM:           m?.roeTTM                         ?? null,
       roaTTM:           m?.roaTTM                         ?? null,
       debtToEquity:     m?.['totalDebt/totalEquityAnnual'] ?? null,
