@@ -8,31 +8,35 @@ import {
 // Small delay helper to stagger requests and avoid rate limits
 const delay = (ms: number) => new Promise(r => setTimeout(r, ms))
 
-// Stooq fallback for daily candle data (free, no key, US stocks)
-async function stooqDailyCandles(ticker: string, days = 400) {
-  const sym  = ticker.toLowerCase().replace(/[^a-z0-9]/g, '') + '.us'
-  const from = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
-  const to   = new Date()
-  const d1   = from.toISOString().split('T')[0].replace(/-/g, '')
-  const d2   = to.toISOString().split('T')[0].replace(/-/g, '')
-  const url  = `https://stooq.com/q/d/l/?s=${sym}&d1=${d1}&d2=${d2}&i=d`
-  const res  = await fetch(url, { next: { revalidate: 3600 }, headers: { 'User-Agent': 'Mozilla/5.0' } })
-  if (!res.ok) throw new Error(`Stooq ${res.status}`)
-  const csv   = await res.text()
-  const lines = csv.trim().split('\n')
-  if (lines.length < 2) return []
-  const bars = []
-  for (let i = 1; i < lines.length; i++) {
-    const parts = lines[i].split(',')
-    if (parts.length < 5) continue
-    const [dateStr, open, high, low, close, vol] = parts
-    const ts = Math.floor(new Date(dateStr).getTime() / 1000)
-    const c  = parseFloat(close)
-    if (!ts || !c || c <= 0) continue
-    bars.push({ t: ts * 1000, c, o: parseFloat(open) || c, h: parseFloat(high) || c, l: parseFloat(low) || c, v: parseInt(vol ?? '0') || 0 })
-  }
-  // Stooq returns newest-first — reverse to chronological
-  return bars.reverse()
+// Yahoo Finance fallback for daily candle data (free, no key, reliable server-side)
+async function yahooDailyCandles(ticker: string) {
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?range=1y&interval=1d&includePrePost=false`
+  const res = await fetch(url, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+      'Accept': 'application/json',
+    },
+    next: { revalidate: 3600 },
+  })
+  if (!res.ok) throw new Error(`Yahoo ${res.status}`)
+  const json   = await res.json()
+  const result = json?.chart?.result?.[0]
+  if (!result) throw new Error('No Yahoo result')
+  const ts    = result.timestamp ?? []
+  const quote = result.indicators?.quote?.[0] ?? {}
+  const bars = ts.map((t: number, i: number) => {
+    const c = quote.close?.[i] ?? 0
+    if (!c || c <= 0) return null
+    return {
+      t: t * 1000,
+      c,
+      o: quote.open?.[i]   ?? c,
+      h: quote.high?.[i]   ?? c,
+      l: quote.low?.[i]    ?? c,
+      v: quote.volume?.[i] ?? 0,
+    }
+  }).filter(Boolean) as { t: number; c: number; o: number; h: number; l: number; v: number }[]
+  return bars
 }
 
 export async function GET(req: NextRequest) {
@@ -86,10 +90,10 @@ export async function GET(req: NextRequest) {
     }
     if (candleData.length === 0) {
       try {
-        candleData = await stooqDailyCandles(t, 400)
-        console.log(`[${t}] Stooq candles: ${candleData.length} bars`)
+        candleData = await yahooDailyCandles(t)
+        console.log(`[${t}] Yahoo candles: ${candleData.length} bars`)
       } catch (e: any) {
-        console.log(`[${t}] Stooq failed: ${e.message}`)
+        console.log(`[${t}] Yahoo failed: ${e.message}`)
       }
     }
 
