@@ -13,31 +13,20 @@ const YAHOO_HEADERS = {
   'Accept': 'application/json',
 }
 
-// Yahoo Finance fundamentals-timeseries — pulls directly from SEC filings
-// Uses same query1 host as the working candle endpoint
-async function yahooTimeseries(ticker: string) {
-  const types = 'annualEBITDA,annualEnterpriseValue,annualFreeCashFlow'
-  const now = Math.floor(Date.now() / 1000)
-  const url = `https://query1.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/${encodeURIComponent(ticker)}?type=${types}&period1=1000000000&period2=${now}`
-  const res = await fetch(url, { headers: YAHOO_HEADERS, next: { revalidate: 3600 } })
-  if (!res.ok) {
-    console.log(`[${ticker}] Yahoo timeseries ${res.status}`)
-    return null
-  }
+// Financial Modeling Prep — free tier (250 req/day), returns EV/EBITDA & FCF reliably
+// Get a free key at financialmodelingprep.com and set FMP_API_KEY in Vercel env vars
+async function fmpKeyMetrics(ticker: string): Promise<{ evToEbitda: number|null; fcfPerShare: number|null } | null> {
+  const key = process.env.FMP_API_KEY
+  if (!key) return null
+  const url = `https://financialmodelingprep.com/api/v3/key-metrics-ttm/${encodeURIComponent(ticker)}?apikey=${key}`
+  const res = await fetch(url, { next: { revalidate: 3600 } })
+  if (!res.ok) { console.log(`[${ticker}] FMP ${res.status}`); return null }
   const json = await res.json()
-  const results: any[] = json?.timeseries?.result ?? []
-
-  const latest = (type: string) => {
-    const r = results.find((x: any) => x.type === type)
-    const arr = r?.[type]
-    if (!Array.isArray(arr) || arr.length === 0) return null
-    return arr[arr.length - 1]?.reportedValue?.raw ?? null
-  }
-
+  const r = Array.isArray(json) ? json[0] : null
+  if (!r) return null
   return {
-    ebitda: latest('annualEBITDA'),
-    ev:     latest('annualEnterpriseValue'),
-    fcf:    latest('annualFreeCashFlow'),
+    evToEbitda:  r.enterpriseValueOverEBITDATTM ?? null,
+    fcfPerShare: r.freeCashFlowPerShareTTM       ?? null,
   }
 }
 
@@ -83,10 +72,10 @@ export async function GET(req: NextRequest) {
     // Small stagger before batch 2 to avoid rate limit
     await delay(150)
 
-    // Batch 2: candles + Yahoo timeseries (SEC filing data) in parallel
-    const [candlesR, tsData] = await Promise.all([
+    // Batch 2: candles + FMP key metrics in parallel
+    const [candlesR, fmpData] = await Promise.all([
       getCandles(t, 400).then(v => ({ status: 'fulfilled' as const, value: v })).catch(e => ({ status: 'rejected' as const, reason: e })),
-      yahooTimeseries(t).catch(() => null),
+      fmpKeyMetrics(t).catch(() => null),
     ])
 
     await delay(150)
@@ -151,11 +140,17 @@ export async function GET(req: NextRequest) {
     const profitMar = m?.netProfitMarginTTM ?? null
     const revGrowth = m?.revenueGrowthTTMYoy ?? null  // in percent, e.g. 20 = 20%
 
-    // Compute EV/EBITDA from timeseries SEC data
-    const computedEvEbitda = (tsData?.ev && tsData?.ebitda && tsData.ebitda > 0)
-      ? tsData.ev / tsData.ebitda
-      : null
-    console.log(`[${t}] timeseries: ev=${tsData?.ev}, ebitda=${tsData?.ebitda}, fcf=${tsData?.fcf}, evEbitda=${computedEvEbitda?.toFixed(1)}`)
+    // Shares outstanding estimate: marketCap / price
+    const shares = (marketCap && price && price > 0) ? marketCap / price : null
+
+    // EV/EBITDA: from FMP if key is configured; Finnhub free plan doesn't include EBITDA
+    const computedEvEbitda = fmpData?.evToEbitda ?? null
+    console.log(`[${t}] FMP: evToEbitda=${computedEvEbitda}, fcfPerShare=${fmpData?.fcfPerShare}`)
+
+    // FCF: FMP per-share × shares is most accurate; fall back to Finnhub cashFlowPerShareTTM × shares
+    const fmpFcf = (fmpData?.fcfPerShare != null && shares) ? fmpData.fcfPerShare * shares : null
+    const finnhubFcf = (m?.cashFlowPerShareTTM != null && shares) ? m.cashFlowPerShareTTM * shares : null
+    const computedFcf = fmpFcf ?? finnhubFcf
 
     // Compute PEG manually: P/E ÷ revenue growth % — entirely from Finnhub, no external call
     const peTTM = m?.peTTM ?? null
@@ -227,7 +222,7 @@ export async function GET(req: NextRequest) {
       debtToEquity:     m?.['totalDebt/totalEquityAnnual'] ?? null,
       currentRatio:     m?.currentRatioAnnual             ?? null,
       revenuePerShare:  m?.revenuePerShareTTM             ?? null,
-      freeCashflow:     tsData?.fcf ?? null,
+      freeCashflow:     computedFcf,
       moatScore:        computeMoatScore(marketCap, profitMar),
       growthScore:      computeGrowthScore(revGrowth, quantSignals?.momentum?.m1y ?? null),
       quantSignals,
