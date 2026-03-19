@@ -4,6 +4,7 @@ import {
   ResponsiveContainer, ComposedChart, Area, Line,
   XAxis, YAxis, CartesianGrid, Tooltip,
 } from 'recharts'
+import Abbr from '@/components/Abbr'
 
 const mono = 'IBM Plex Mono, monospace'
 const TIMEFRAMES = ['1D', '5D', '1M', '3M', '6M', '1Y', '2Y', '5Y']
@@ -338,11 +339,11 @@ export default function AdvancedChart({ ticker, initialBars }: Props) {
             ))}
           </div>
           {([
-            { l: 'SMA20',  a: showSMA20,  c: '#F5A623', fn: () => setShowSMA20(v  => !v) },
-            { l: 'SMA50',  a: showSMA50,  c: '#5B8DEF', fn: () => setShowSMA50(v  => !v) },
-            { l: 'SMA200', a: showSMA200, c: '#BF5AF2', fn: () => setShowSMA200(v => !v) },
-            { l: 'BB',     a: showBB,     c: '#5B8DEF', fn: () => setShowBB(v     => !v) },
-            { l: 'VOL',    a: showVolume, c: '#aaa',    fn: () => setShowVolume(v  => !v) },
+            { l: 'SMA20',  term: 'SMA 20',  a: showSMA20,  c: '#F5A623', fn: () => setShowSMA20(v  => !v) },
+            { l: 'SMA50',  term: 'SMA 50',  a: showSMA50,  c: '#5B8DEF', fn: () => setShowSMA50(v  => !v) },
+            { l: 'SMA200', term: 'SMA 200', a: showSMA200, c: '#BF5AF2', fn: () => setShowSMA200(v => !v) },
+            { l: 'BB',     term: 'BB',      a: showBB,     c: '#5B8DEF', fn: () => setShowBB(v     => !v) },
+            { l: 'VOL',    term: 'VOL',     a: showVolume, c: '#aaa',    fn: () => setShowVolume(v  => !v) },
           ]).map(ind => (
             <button key={ind.l} onClick={ind.fn} style={{
               padding: '3px 9px', fontFamily: mono, fontSize: 10, letterSpacing: 1,
@@ -350,7 +351,7 @@ export default function AdvancedChart({ ticker, initialBars }: Props) {
               color:      ind.a ? ind.c : 'var(--text4)',
               border:     `1px solid ${ind.a ? ind.c + '55' : 'var(--border)'}`,
               borderRadius: 3, cursor: 'pointer',
-            }}>{ind.l}</button>
+            }}><Abbr term={ind.term}>{ind.l}</Abbr></button>
           ))}
         </div>
       </div>

@@ -1,9 +1,10 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import ScoreBar from '@/components/ScoreBar'
 import Navbar from '@/components/Navbar'
+import Abbr from '@/components/Abbr'
 
 const AdvancedChart = dynamic(() => import('@/components/AdvancedChart'), { ssr: false })
 
@@ -30,7 +31,7 @@ function signalColor(s: string) {
   return '#ff4d4d'
 }
 
-function MBox({ label, value, color }: { label: string; value: string; color?: string }) {
+function MBox({ label, value, color }: { label: React.ReactNode; value: string; color?: string }) {
   return (
     <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 5, padding: '10px 12px' }}>
       <div style={{ fontSize: 10, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: 1, fontFamily: mono, marginBottom: 5 }}>{label}</div>
@@ -48,7 +49,7 @@ function SHead({ label }: { label: string }) {
   )
 }
 
-function SRow({ label, value, bar, barColor }: { label: string; value: string; bar?: number; barColor?: string }) {
+function SRow({ label, value, bar, barColor }: { label: React.ReactNode; value: string; bar?: number; barColor?: string }) {
   const bc = barColor || 'var(--accent)'
   const width = bar != null ? Math.min(100, Math.max(0, bar)) + '%' : '0%'
   return (
@@ -287,14 +288,14 @@ export default function Dashboard() {
                         <AdvancedChart ticker={ticker} initialBars={data.ohlcv ?? []} />
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginBottom: 12 }}>
-                        <MBox label="P/E (TTM)" value={data.pe ? data.pe.toFixed(1) : '—'} />
-                        <MBox label="EPS (TTM)" value={data.eps ? '$' + data.eps.toFixed(2) : '—'} />
-                        <MBox label="EV/EBITDA" value={data.evToEbitda ? data.evToEbitda.toFixed(1) : '—'} />
-                        <MBox label="P/S (TTM)" value={data.priceToSales ? data.priceToSales.toFixed(2) : '—'} />
-                        <MBox label="P/B" value={data.priceToBook ? data.priceToBook.toFixed(2) : '—'} />
-                        <MBox label="PEG Ratio" value={data.pegRatio ? data.pegRatio.toFixed(2) : '—'} />
-                        <MBox label="ROE (TTM)" value={data.roeTTM ? data.roeTTM.toFixed(1) + '%' : '—'} color={data.roeTTM && data.roeTTM > 15 ? 'var(--accent)' : undefined} />
-                        <MBox label="ROA (TTM)" value={data.roaTTM ? data.roaTTM.toFixed(1) + '%' : '—'} />
+                        <MBox label={<Abbr term="P/E">P/E (TTM)</Abbr>} value={data.pe ? data.pe.toFixed(1) : '—'} />
+                        <MBox label={<Abbr term="EPS">EPS (TTM)</Abbr>} value={data.eps ? '$' + data.eps.toFixed(2) : '—'} />
+                        <MBox label={<Abbr term="EV/EBITDA">EV/EBITDA</Abbr>} value={data.evToEbitda ? data.evToEbitda.toFixed(1) : '—'} />
+                        <MBox label={<Abbr term="P/S">P/S (TTM)</Abbr>} value={data.priceToSales ? data.priceToSales.toFixed(2) : '—'} />
+                        <MBox label={<Abbr term="P/B">P/B</Abbr>} value={data.priceToBook ? data.priceToBook.toFixed(2) : '—'} />
+                        <MBox label={<Abbr term="PEG">PEG Ratio</Abbr>} value={data.pegRatio ? data.pegRatio.toFixed(2) : '—'} />
+                        <MBox label={<Abbr term="ROE">ROE (TTM)</Abbr>} value={data.roeTTM ? data.roeTTM.toFixed(1) + '%' : '—'} color={data.roeTTM && data.roeTTM > 15 ? 'var(--accent)' : undefined} />
+                        <MBox label={<Abbr term="ROA">ROA (TTM)</Abbr>} value={data.roaTTM ? data.roaTTM.toFixed(1) + '%' : '—'} />
                         <MBox label="52W High" value={data.fiftyTwoWeekHigh ? '$' + data.fiftyTwoWeekHigh.toFixed(2) : '—'} />
                         <MBox label="52W Low" value={data.fiftyTwoWeekLow ? '$' + data.fiftyTwoWeekLow.toFixed(2) : '—'} />
                         <MBox label="Beta" value={data.beta ? data.beta.toFixed(2) : '—'} />
@@ -442,22 +443,22 @@ export default function Dashboard() {
                           <div style={{ fontSize: 10, color: 'var(--text3)', fontFamily: mono, letterSpacing: 2, marginBottom: 4 }}>COMPOSITE SIGNAL</div>
                           <div style={{ fontSize: 26, fontWeight: 800, color: signalColor(qs.trend), letterSpacing: 1 }}>{qs.trend}</div>
                         </div>
-                        {qs.goldenCross && <span style={{ fontSize: 11, padding: '4px 10px', border: '1px solid var(--green)', color: 'var(--green)', borderRadius: 4, fontFamily: mono, letterSpacing: 1 }}>✦ GOLDEN CROSS</span>}
-                        {qs.deathCross  && <span style={{ fontSize: 11, padding: '4px 10px', border: '1px solid var(--red)',   color: 'var(--red)',   borderRadius: 4, fontFamily: mono, letterSpacing: 1 }}>✦ DEATH CROSS</span>}
-                        {qs.macdCrossBull && <span style={{ fontSize: 11, padding: '4px 10px', border: '1px solid var(--green)', color: 'var(--green)', borderRadius: 4, fontFamily: mono, letterSpacing: 1 }}>↑ MACD BULL X</span>}
-                        {qs.macdCrossBear && <span style={{ fontSize: 11, padding: '4px 10px', border: '1px solid var(--red)',   color: 'var(--red)',   borderRadius: 4, fontFamily: mono, letterSpacing: 1 }}>↓ MACD BEAR X</span>}
+                        {qs.goldenCross && <Abbr term="SMA 50" width={260}><span style={{ fontSize: 11, padding: '4px 10px', border: '1px solid var(--green)', color: 'var(--green)', borderRadius: 4, fontFamily: mono, letterSpacing: 1 }}>✦ GOLDEN CROSS</span></Abbr>}
+                        {qs.deathCross  && <Abbr term="SMA 50" width={260}><span style={{ fontSize: 11, padding: '4px 10px', border: '1px solid var(--red)',   color: 'var(--red)',   borderRadius: 4, fontFamily: mono, letterSpacing: 1 }}>✦ DEATH CROSS</span></Abbr>}
+                        {qs.macdCrossBull && <Abbr term="MACD" width={280}><span style={{ fontSize: 11, padding: '4px 10px', border: '1px solid var(--green)', color: 'var(--green)', borderRadius: 4, fontFamily: mono, letterSpacing: 1 }}>↑ MACD BULL X</span></Abbr>}
+                        {qs.macdCrossBear && <Abbr term="MACD" width={280}><span style={{ fontSize: 11, padding: '4px 10px', border: '1px solid var(--red)',   color: 'var(--red)',   borderRadius: 4, fontFamily: mono, letterSpacing: 1 }}>↓ MACD BEAR X</span></Abbr>}
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16 }}>
                         {([
-                          { label: 'TREND',     score: qs.scores.trend,         desc: 'MA alignment & MACD' },
-                          { label: 'MOMENTUM',  score: qs.scores.momentum,      desc: '1M–1Y price returns' },
-                          { label: 'MEAN REV.', score: qs.scores.meanReversion,  desc: 'RSI · Stoch · Z-score' },
-                          { label: 'RISK',      score: qs.scores.risk,           desc: 'Vol · Drawdown' },
+                          { label: 'TREND',     term: 'TREND',     score: qs.scores.trend,         desc: 'MA alignment & MACD' },
+                          { label: 'MOMENTUM',  term: 'MOMENTUM',  score: qs.scores.momentum,      desc: '1M–1Y price returns' },
+                          { label: 'MEAN REV.', term: 'MEAN REV.', score: qs.scores.meanReversion,  desc: 'RSI · Stoch · Z-score' },
+                          { label: 'RISK',      term: 'RISK',      score: qs.scores.risk,           desc: 'Vol · Drawdown' },
                         ] as const).map(f => {
                           const c = f.score >= 70 ? 'var(--green)' : f.score >= 45 ? 'var(--amber)' : 'var(--red)'
                           return (
                             <div key={f.label}>
-                              <div style={{ fontSize: 10, letterSpacing: 1.5, color: 'var(--text3)', fontFamily: mono, marginBottom: 6 }}>{f.label}</div>
+                              <div style={{ fontSize: 10, letterSpacing: 1.5, color: 'var(--text3)', fontFamily: mono, marginBottom: 6 }}><Abbr term={f.term}>{f.label}</Abbr></div>
                               <div style={{ fontSize: 22, fontWeight: 700, fontFamily: mono, color: c }}>{f.score}</div>
                               <div style={{ height: 3, background: 'var(--border2)', borderRadius: 2, margin: '6px 0' }}>
                                 <div style={{ height: '100%', width: f.score + '%', background: c, borderRadius: 2 }} />
@@ -475,11 +476,11 @@ export default function Dashboard() {
                         <SHead label="Trend & Moving Averages" />
                         <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 14px 8px' }}>
                           {[
-                            { label: 'SMA 20',  val: qs.sma20,  above: data.price && qs.sma20  ? data.price > qs.sma20  : null },
-                            { label: 'SMA 50',  val: qs.sma50,  above: data.price && qs.sma50  ? data.price > qs.sma50  : null },
-                            { label: 'SMA 200', val: qs.sma200, above: data.price && qs.sma200 ? data.price > qs.sma200 : null },
+                            { key: 'sma20',  label: <Abbr term="SMA 20">SMA 20</Abbr>,  val: qs.sma20,  above: data.price && qs.sma20  ? data.price > qs.sma20  : null },
+                            { key: 'sma50',  label: <Abbr term="SMA 50">SMA 50</Abbr>,  val: qs.sma50,  above: data.price && qs.sma50  ? data.price > qs.sma50  : null },
+                            { key: 'sma200', label: <Abbr term="SMA 200">SMA 200</Abbr>, val: qs.sma200, above: data.price && qs.sma200 ? data.price > qs.sma200 : null },
                           ].map(s => (
-                            <div key={s.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
+                            <div key={s.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
                               <span style={{ fontSize: 13, color: 'var(--text2)' }}>{s.label}</span>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                                 <span style={{ fontFamily: mono, fontSize: 13 }}>{s.val ? '$' + s.val : '—'}</span>
@@ -492,7 +493,7 @@ export default function Dashboard() {
                             </div>
                           ))}
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0' }}>
-                            <span style={{ fontSize: 13, color: 'var(--text2)' }}>MACD Histogram</span>
+                            <span style={{ fontSize: 13, color: 'var(--text2)' }}><Abbr term="MACD">MACD Histogram</Abbr></span>
                             <span style={{ fontFamily: mono, fontSize: 13, color: qs.macdHist >= 0 ? 'var(--green)' : 'var(--red)', fontWeight: 600 }}>
                               {qs.macdHist >= 0 ? '+' : ''}{qs.macdHist.toFixed(3)}
                             </span>
@@ -520,7 +521,7 @@ export default function Dashboard() {
                         <SHead label="Volume & Structure" />
                         <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 14px 8px' }}>
                           <SRow label="Vol Trend (5d/20d)" value={(qs.volumeTrend >= 0 ? '+' : '') + qs.volumeTrend.toFixed(1) + '%'} bar={50 + Math.min(50, Math.max(-50, qs.volumeTrend))} barColor={qs.volumeTrend > 20 ? 'var(--accent)' : qs.volumeTrend < -20 ? 'var(--red)' : 'var(--amber)'} />
-                          <SRow label="OBV Trend" value={qs.obvTrend.toUpperCase()} barColor={qs.obvTrend === 'bullish' ? 'var(--green)' : qs.obvTrend === 'bearish' ? 'var(--red)' : 'var(--text3)'} />
+                          <SRow label={<Abbr term="OBV Trend">OBV Trend</Abbr>} value={qs.obvTrend.toUpperCase()} barColor={qs.obvTrend === 'bullish' ? 'var(--green)' : qs.obvTrend === 'bearish' ? 'var(--red)' : 'var(--text3)'} />
                           <SRow label="52W Position" value={qs.pos52w.toFixed(1) + '%'} bar={qs.pos52w} barColor="var(--accent)" />
                         </div>
                       </div>
@@ -529,28 +530,28 @@ export default function Dashboard() {
                       <div>
                         <SHead label="Oscillators" />
                         <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 14px 8px' }}>
-                          <SRow label="RSI (14)" value={qs.rsi.toFixed(1) + (qs.rsi > 70 ? ' — Overbought' : qs.rsi < 30 ? ' — Oversold' : '')} bar={qs.rsi} barColor={qs.rsi > 70 ? 'var(--red)' : qs.rsi < 30 ? 'var(--green)' : 'var(--amber)'} />
-                          <SRow label="Stochastic %K" value={qs.stochK.toFixed(1) + (qs.stochK > 80 ? ' — OB' : qs.stochK < 20 ? ' — OS' : '')} bar={qs.stochK} barColor={qs.stochK > 80 ? 'var(--red)' : qs.stochK < 20 ? 'var(--green)' : 'var(--amber)'} />
-                          <SRow label="Stochastic %D" value={qs.stochD.toFixed(1)} bar={qs.stochD} barColor="var(--text3)" />
-                          <SRow label="MACD" value={(qs.macd >= 0 ? '+' : '') + qs.macd.toFixed(3)} barColor={qs.macd >= 0 ? 'var(--green)' : 'var(--red)'} />
-                          <SRow label="MACD Signal" value={(qs.macdSignal >= 0 ? '+' : '') + qs.macdSignal.toFixed(3)} />
+                          <SRow label={<Abbr term="RSI">RSI (14)</Abbr>} value={qs.rsi.toFixed(1) + (qs.rsi > 70 ? ' — Overbought' : qs.rsi < 30 ? ' — Oversold' : '')} bar={qs.rsi} barColor={qs.rsi > 70 ? 'var(--red)' : qs.rsi < 30 ? 'var(--green)' : 'var(--amber)'} />
+                          <SRow label={<Abbr term="Stochastic %K">Stochastic %K</Abbr>} value={qs.stochK.toFixed(1) + (qs.stochK > 80 ? ' — OB' : qs.stochK < 20 ? ' — OS' : '')} bar={qs.stochK} barColor={qs.stochK > 80 ? 'var(--red)' : qs.stochK < 20 ? 'var(--green)' : 'var(--amber)'} />
+                          <SRow label={<Abbr term="Stochastic %D">Stochastic %D</Abbr>} value={qs.stochD.toFixed(1)} bar={qs.stochD} barColor="var(--text3)" />
+                          <SRow label={<Abbr term="MACD">MACD</Abbr>} value={(qs.macd >= 0 ? '+' : '') + qs.macd.toFixed(3)} barColor={qs.macd >= 0 ? 'var(--green)' : 'var(--red)'} />
+                          <SRow label={<Abbr term="MACD">MACD Signal</Abbr>} value={(qs.macdSignal >= 0 ? '+' : '') + qs.macdSignal.toFixed(3)} />
                         </div>
 
                         <SHead label="Mean Reversion" />
                         <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 14px 8px' }}>
-                          <SRow label="BB Upper" value={'$' + qs.bbUpper.toFixed(2)} />
-                          <SRow label="BB Middle (SMA20)" value={qs.sma20 ? '$' + qs.sma20 : '—'} />
-                          <SRow label="BB Lower" value={'$' + qs.bbLower.toFixed(2)} />
-                          <SRow label="BB %B (position)" value={(qs.bbPosition * 100).toFixed(0) + '%'} bar={qs.bbPosition * 100} barColor={qs.bbPosition > 0.8 ? 'var(--red)' : qs.bbPosition < 0.2 ? 'var(--green)' : 'var(--amber)'} />
-                          <SRow label="BB Width (squeeze)" value={qs.bbWidth.toFixed(2) + '%'} barColor={qs.bbWidth < 5 ? 'var(--amber)' : 'var(--text3)'} />
-                          <SRow label="Z-Score (20d)" value={qs.zScore.toFixed(2)} barColor={Math.abs(qs.zScore) > 2 ? 'var(--red)' : Math.abs(qs.zScore) > 1 ? 'var(--amber)' : 'var(--green)'} />
+                          <SRow label={<Abbr term="BB Upper">BB Upper</Abbr>} value={'$' + qs.bbUpper.toFixed(2)} />
+                          <SRow label={<Abbr term="BB">BB Middle (SMA 20)</Abbr>} value={qs.sma20 ? '$' + qs.sma20 : '—'} />
+                          <SRow label={<Abbr term="BB Lower">BB Lower</Abbr>} value={'$' + qs.bbLower.toFixed(2)} />
+                          <SRow label={<Abbr term="BB %B">BB %B (position)</Abbr>} value={(qs.bbPosition * 100).toFixed(0) + '%'} bar={qs.bbPosition * 100} barColor={qs.bbPosition > 0.8 ? 'var(--red)' : qs.bbPosition < 0.2 ? 'var(--green)' : 'var(--amber)'} />
+                          <SRow label={<Abbr term="BB Width">BB Width (squeeze)</Abbr>} value={qs.bbWidth.toFixed(2) + '%'} barColor={qs.bbWidth < 5 ? 'var(--amber)' : 'var(--text3)'} />
+                          <SRow label={<Abbr term="Z-Score">Z-Score (20d)</Abbr>} value={qs.zScore.toFixed(2)} barColor={Math.abs(qs.zScore) > 2 ? 'var(--red)' : Math.abs(qs.zScore) > 1 ? 'var(--amber)' : 'var(--green)'} />
                         </div>
 
                         <SHead label="Volatility & Risk" />
                         <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 14px 8px' }}>
-                          <SRow label="Hist. Vol 20d (ann.)" value={qs.hv20.toFixed(1) + '%'} barColor={qs.hv20 > 50 ? 'var(--red)' : qs.hv20 > 30 ? 'var(--amber)' : 'var(--green)'} />
-                          <SRow label="ATR (14)" value={'$' + qs.atr14.toFixed(2) + ' (' + qs.atrPct.toFixed(1) + '%)'} barColor="var(--text3)" />
-                          <SRow label="Max Drawdown (1Y)" value={qs.maxDrawdown252.toFixed(1) + '%'} barColor={qs.maxDrawdown252 > 40 ? 'var(--red)' : qs.maxDrawdown252 > 20 ? 'var(--amber)' : 'var(--green)'} />
+                          <SRow label={<Abbr term="HV">Hist. Vol 20d (ann.)</Abbr>} value={qs.hv20.toFixed(1) + '%'} barColor={qs.hv20 > 50 ? 'var(--red)' : qs.hv20 > 30 ? 'var(--amber)' : 'var(--green)'} />
+                          <SRow label={<Abbr term="ATR">ATR (14)</Abbr>} value={'$' + qs.atr14.toFixed(2) + ' (' + qs.atrPct.toFixed(1) + '%)'} barColor="var(--text3)" />
+                          <SRow label={<Abbr term="Max Drawdown">Max Drawdown (1Y)</Abbr>} value={qs.maxDrawdown252.toFixed(1) + '%'} barColor={qs.maxDrawdown252 > 40 ? 'var(--red)' : qs.maxDrawdown252 > 20 ? 'var(--amber)' : 'var(--green)'} />
                         </div>
                       </div>
                     </div>
