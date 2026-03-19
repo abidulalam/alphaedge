@@ -72,10 +72,9 @@ export async function GET(req: NextRequest) {
     // Small stagger before batch 2 to avoid rate limit
     await delay(150)
 
-    // Batch 2: candles + FMP key metrics in parallel
-    const [candlesR, fmpData] = await Promise.all([
+    // Batch 2: candles
+    const [candlesR] = await Promise.all([
       getCandles(t, 400).then(v => ({ status: 'fulfilled' as const, value: v })).catch(e => ({ status: 'rejected' as const, reason: e })),
-      fmpKeyMetrics(t).catch(() => null),
     ])
 
     await delay(150)
@@ -140,23 +139,19 @@ export async function GET(req: NextRequest) {
     const profitMar = m?.netProfitMarginTTM ?? null
     const revGrowth = m?.revenueGrowthTTMYoy ?? null  // in percent, e.g. 20 = 20%
 
-    // Shares outstanding estimate: marketCap / price
-    const shares = (marketCap && price && price > 0) ? marketCap / price : null
+    // FCF from Finnhub: pfcfShareTTM = Price/FCF-per-share, so FCF = marketCap / pfcfShareTTM
+    const computedFcf = (m?.pfcfShareTTM && m.pfcfShareTTM > 0 && marketCap)
+      ? marketCap / m.pfcfShareTTM
+      : (m?.cashFlowPerShareTTM && marketCap && price && price > 0)
+        ? m.cashFlowPerShareTTM * (marketCap / price)
+        : null
 
-    // EV/EBITDA: from FMP if key is configured; Finnhub free plan doesn't include EBITDA
-    const computedEvEbitda = fmpData?.evToEbitda ?? null
-    console.log(`[${t}] FMP: evToEbitda=${computedEvEbitda}, fcfPerShare=${fmpData?.fcfPerShare}`)
-
-    // FCF: FMP per-share × shares is most accurate; fall back to Finnhub cashFlowPerShareTTM × shares
-    const fmpFcf = (fmpData?.fcfPerShare != null && shares) ? fmpData.fcfPerShare * shares : null
-    const finnhubFcf = (m?.cashFlowPerShareTTM != null && shares) ? m.cashFlowPerShareTTM * shares : null
-    const computedFcf = fmpFcf ?? finnhubFcf
-
-    // Compute PEG manually: P/E ÷ revenue growth % — entirely from Finnhub, no external call
+    // PEG: Finnhub pegTTM field (was misnamed before); fall back to manual P/E ÷ growth%
     const peTTM = m?.peTTM ?? null
     const computedPeg = (peTTM && peTTM > 0 && revGrowth && revGrowth > 0)
       ? parseFloat((peTTM / revGrowth).toFixed(2))
       : null
+    console.log(`[${t}] Finnhub: evEbitdaTTM=${m?.evEbitdaTTM}, pegTTM=${m?.pegTTM}, pfcfShareTTM=${m?.pfcfShareTTM}, FCF=${computedFcf?.toFixed(0)}`)
 
     // Insider transaction code mapping
     const TX: Record<string, { label: string; type: 'buy'|'sell'|'neutral' }> = {
@@ -213,10 +208,10 @@ export async function GET(req: NextRequest) {
       dividendYield:    m?.dividendYieldIndicatedAnnual   ?? null,
       fiftyTwoWeekHigh: m?.['52WeekHigh']                 ?? null,
       fiftyTwoWeekLow:  m?.['52WeekLow']                  ?? null,
-      evToEbitda:       m?.['enterpriseValueEbitdaTTM'] ?? m?.['evToEbitdaTTM'] ?? m?.['entEV_EBITDACurrent'] ?? computedEvEbitda ?? null,
+      evToEbitda:       m?.evEbitdaTTM                    ?? null,
       priceToBook:      m?.['pbAnnual']                   ?? null,
       priceToSales:     m?.['psTTM']                      ?? null,
-      pegRatio:         m?.['pegRatio']                   ?? computedPeg         ?? null,
+      pegRatio:         m?.pegTTM                         ?? computedPeg         ?? null,
       roeTTM:           m?.roeTTM                         ?? null,
       roaTTM:           m?.roaTTM                         ?? null,
       debtToEquity:     m?.['totalDebt/totalEquityAnnual'] ?? null,
