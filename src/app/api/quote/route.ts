@@ -13,32 +13,32 @@ const YAHOO_HEADERS = {
   'Accept': 'application/json',
 }
 
-// Yahoo Finance v7 quote — no crumb needed, returns valuation ratios reliably
-async function yahooFundamentals(ticker: string) {
-  const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(ticker)}&formatted=false`
+// Yahoo Finance fundamentals-timeseries — pulls directly from SEC filings
+// Uses same query1 host as the working candle endpoint
+async function yahooTimeseries(ticker: string) {
+  const types = 'annualEBITDA,annualEnterpriseValue,annualFreeCashFlow'
+  const now = Math.floor(Date.now() / 1000)
+  const url = `https://query1.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/${encodeURIComponent(ticker)}?type=${types}&period1=1000000000&period2=${now}`
   const res = await fetch(url, { headers: YAHOO_HEADERS, next: { revalidate: 3600 } })
-  if (!res.ok) throw new Error(`Yahoo v7 ${res.status}`)
-  const json = await res.json()
-  const r = json?.quoteResponse?.result?.[0]
-  if (!r) throw new Error('No Yahoo v7 result')
-  return {
-    evToEbitda:    r.enterpriseToEbitda ?? null,
-    pegRatio:      r.pegRatio           ?? null,
-    priceToBook:   r.priceToBook        ?? null,
-    beta:          r.beta               ?? null,
-    profitMargins: r.profitMargins      ?? null,
-    revenueGrowth: r.revenueGrowth      ?? null,
+  if (!res.ok) {
+    console.log(`[${ticker}] Yahoo timeseries ${res.status}`)
+    return null
   }
-}
-
-// Yahoo Finance quoteSummary financialData — for free cash flow
-async function yahooFreeCashflow(ticker: string): Promise<number | null> {
-  const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(ticker)}?modules=financialData`
-  const res = await fetch(url, { headers: YAHOO_HEADERS, next: { revalidate: 3600 } })
-  if (!res.ok) return null
   const json = await res.json()
-  const fd = json?.quoteSummary?.result?.[0]?.financialData ?? {}
-  return fd.freeCashflow?.raw ?? null
+  const results: any[] = json?.timeseries?.result ?? []
+
+  const latest = (type: string) => {
+    const r = results.find((x: any) => x.type === type)
+    const arr = r?.[type]
+    if (!Array.isArray(arr) || arr.length === 0) return null
+    return arr[arr.length - 1]?.reportedValue?.raw ?? null
+  }
+
+  return {
+    ebitda: latest('annualEBITDA'),
+    ev:     latest('annualEnterpriseValue'),
+    fcf:    latest('annualFreeCashFlow'),
+  }
 }
 
 // Yahoo Finance fallback for daily candle data (free, no key, reliable server-side)
@@ -83,11 +83,10 @@ export async function GET(req: NextRequest) {
     // Small stagger before batch 2 to avoid rate limit
     await delay(150)
 
-    // Batch 2: candles + Yahoo fundamentals + free cash flow in parallel
-    const [candlesR, yahooFundR, freeCashflow] = await Promise.all([
+    // Batch 2: candles + Yahoo timeseries (SEC filing data) in parallel
+    const [candlesR, tsData] = await Promise.all([
       getCandles(t, 400).then(v => ({ status: 'fulfilled' as const, value: v })).catch(e => ({ status: 'rejected' as const, reason: e })),
-      yahooFundamentals(t).catch(() => null),
-      yahooFreeCashflow(t).catch(() => null),
+      yahooTimeseries(t).catch(() => null),
     ])
 
     await delay(150)
@@ -150,7 +149,19 @@ export async function GET(req: NextRequest) {
     const changePct = q.dp ?? null
     const marketCap = p?.marketCapitalization ? p.marketCapitalization * 1e6 : null
     const profitMar = m?.netProfitMarginTTM ?? null
-    const revGrowth = m?.revenueGrowthTTMYoy ?? null
+    const revGrowth = m?.revenueGrowthTTMYoy ?? null  // in percent, e.g. 20 = 20%
+
+    // Compute EV/EBITDA from timeseries SEC data
+    const computedEvEbitda = (tsData?.ev && tsData?.ebitda && tsData.ebitda > 0)
+      ? tsData.ev / tsData.ebitda
+      : null
+    console.log(`[${t}] timeseries: ev=${tsData?.ev}, ebitda=${tsData?.ebitda}, fcf=${tsData?.fcf}, evEbitda=${computedEvEbitda?.toFixed(1)}`)
+
+    // Compute PEG manually: P/E ÷ revenue growth % — entirely from Finnhub, no external call
+    const peTTM = m?.peTTM ?? null
+    const computedPeg = (peTTM && peTTM > 0 && revGrowth && revGrowth > 0)
+      ? parseFloat((peTTM / revGrowth).toFixed(2))
+      : null
 
     // Insider transaction code mapping
     const TX: Record<string, { label: string; type: 'buy'|'sell'|'neutral' }> = {
@@ -203,20 +214,20 @@ export async function GET(req: NextRequest) {
       eps:              m?.epsTTM                         ?? null,
       revenueGrowth:    revGrowth ? revGrowth / 100 : null,
       profitMargins:    profitMar ? profitMar / 100 : null,
-      beta:             m?.beta                           ?? yahooFundR?.beta ?? null,
+      beta:             m?.beta                           ?? null,
       dividendYield:    m?.dividendYieldIndicatedAnnual   ?? null,
       fiftyTwoWeekHigh: m?.['52WeekHigh']                 ?? null,
       fiftyTwoWeekLow:  m?.['52WeekLow']                  ?? null,
-      evToEbitda:       m?.['enterpriseValueEbitdaTTM'] ?? m?.['evToEbitdaTTM'] ?? m?.['entEV_EBITDACurrent'] ?? yahooFundR?.evToEbitda ?? null,
-      priceToBook:      m?.['pbAnnual']                   ?? yahooFundR?.priceToBook  ?? null,
+      evToEbitda:       m?.['enterpriseValueEbitdaTTM'] ?? m?.['evToEbitdaTTM'] ?? m?.['entEV_EBITDACurrent'] ?? computedEvEbitda ?? null,
+      priceToBook:      m?.['pbAnnual']                   ?? null,
       priceToSales:     m?.['psTTM']                      ?? null,
-      pegRatio:         m?.['pegRatio']                   ?? yahooFundR?.pegRatio     ?? null,
+      pegRatio:         m?.['pegRatio']                   ?? computedPeg         ?? null,
       roeTTM:           m?.roeTTM                         ?? null,
       roaTTM:           m?.roaTTM                         ?? null,
       debtToEquity:     m?.['totalDebt/totalEquityAnnual'] ?? null,
       currentRatio:     m?.currentRatioAnnual             ?? null,
       revenuePerShare:  m?.revenuePerShareTTM             ?? null,
-      freeCashflow:     freeCashflow,
+      freeCashflow:     tsData?.fcf ?? null,
       moatScore:        computeMoatScore(marketCap, profitMar),
       growthScore:      computeGrowthScore(revGrowth, quantSignals?.momentum?.m1y ?? null),
       quantSignals,
