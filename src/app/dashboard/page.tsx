@@ -249,6 +249,7 @@ export default function Dashboard() {
   const [addInput, setAddInput] = useState('')
   const [showAdd, setShowAdd] = useState(false)
   const [wlOpen, setWlOpen] = useState(true)
+  const [showSignalModal, setShowSignalModal] = useState(false)
 
   useEffect(() => {
     try {
@@ -596,7 +597,10 @@ export default function Dashboard() {
                     <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 8, padding: '16px 20px', marginBottom: 20 }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                         <div>
-                          <div style={{ fontSize: 10, color: 'var(--text3)', fontFamily: mono, letterSpacing: 2, marginBottom: 4 }}>COMPOSITE SIGNAL</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <div style={{ fontSize: 10, color: 'var(--text3)', fontFamily: mono, letterSpacing: 2 }}>COMPOSITE SIGNAL</div>
+                            <button onClick={() => setShowSignalModal(true)} style={{ fontSize: 10, fontFamily: mono, color: 'var(--accent)', background: 'rgba(255,85,0,.1)', border: '1px solid rgba(255,85,0,.3)', borderRadius: 3, padding: '1px 7px', cursor: 'pointer', letterSpacing: 1 }}>WHY?</button>
+                          </div>
                           <div style={{ fontSize: 26, fontWeight: 800, color: signalColor(qs.trend), letterSpacing: 1 }}>{qs.trend}</div>
                         </div>
                         {qs.goldenCross && <Abbr term="SMA 50" width={260}><span style={{ fontSize: 11, padding: '4px 10px', border: '1px solid var(--green)', color: 'var(--green)', borderRadius: 4, fontFamily: mono, letterSpacing: 1 }}>✦ GOLDEN CROSS</span></Abbr>}
@@ -908,6 +912,118 @@ export default function Dashboard() {
       </div>
     </div>
     {data && <ChatBot stockContext={data} />}
+
+    {/* Composite Signal Modal */}
+    {showSignalModal && qs && (
+      <div onClick={() => setShowSignalModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+        <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 10, width: '100%', maxWidth: 560, maxHeight: '85vh', overflowY: 'auto' }}>
+          {/* Modal header */}
+          <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div>
+              <div style={{ fontSize: 10, color: 'var(--text3)', fontFamily: mono, letterSpacing: 2 }}>SIGNAL BREAKDOWN — {data.ticker}</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: signalColor(qs.trend), marginTop: 4 }}>{qs.trend}</div>
+            </div>
+            <button onClick={() => setShowSignalModal(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text3)', fontSize: 18, cursor: 'pointer', padding: '4px 8px' }}>✕</button>
+          </div>
+
+          <div style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 18 }}>
+
+            {/* Score summary */}
+            <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, padding: '14px 16px' }}>
+              <div style={{ fontSize: 10, color: 'var(--text3)', fontFamily: mono, letterSpacing: 2, marginBottom: 12 }}>HOW THE SCORE IS CALCULATED</div>
+              <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.7, marginBottom: 12 }}>
+                The composite signal is a weighted average of four sub-scores. <strong style={{ color: 'var(--accent)' }}>Trend (40%)</strong> and <strong style={{ color: 'var(--accent)' }}>Momentum (40%)</strong> carry the most weight, with <strong style={{ color: 'var(--accent)' }}>Mean Reversion (10%)</strong> and <strong style={{ color: 'var(--accent)' }}>Risk (10%)</strong> as modifiers.
+              </div>
+              {(() => {
+                const overall = +(qs.scores.trend * 0.4 + qs.scores.momentum * 0.4 + qs.scores.meanReversion * 0.1 + qs.scores.risk * 0.1).toFixed(1)
+                return (
+                  <div style={{ fontFamily: mono, fontSize: 12, color: 'var(--text3)', background: 'var(--bg3)', padding: '8px 12px', borderRadius: 4 }}>
+                    ({qs.scores.trend}×0.4) + ({qs.scores.momentum}×0.4) + ({qs.scores.meanReversion}×0.1) + ({qs.scores.risk}×0.1) = <span style={{ color: signalColor(qs.trend), fontWeight: 700 }}>{overall}</span>
+                    <span style={{ color: 'var(--text3)', marginLeft: 8 }}>→ {qs.trend}</span>
+                  </div>
+                )
+              })()}
+            </div>
+
+            {/* Trend breakdown */}
+            <div>
+              <div style={{ fontSize: 10, color: 'var(--accent)', fontFamily: mono, letterSpacing: 2, marginBottom: 8 }}>TREND SCORE — {qs.scores.trend}/100 (weight: 40%)</div>
+              {[
+                { label: 'Price above SMA 20', pass: qs.sma20 != null && data.price > qs.sma20, detail: qs.sma20 ? `SMA20 = $${qs.sma20}` : 'N/A' },
+                { label: 'Price above SMA 50', pass: qs.sma50 != null && data.price > qs.sma50, detail: qs.sma50 ? `SMA50 = $${qs.sma50}` : 'N/A' },
+                { label: 'Price above SMA 200', pass: qs.sma200 != null && data.price > qs.sma200, detail: qs.sma200 ? `SMA200 = $${qs.sma200}` : 'N/A' },
+                { label: 'Golden Cross (SMA50 > SMA200)', pass: qs.goldenCross, detail: qs.goldenCross ? 'Bullish long-term trend' : qs.deathCross ? 'Death Cross active' : 'No cross signal' },
+                { label: 'MACD above zero', pass: qs.macd > 0, detail: `MACD = ${qs.macd.toFixed(3)}, Hist = ${qs.macdHist.toFixed(3)}` },
+              ].map(r => (
+                <div key={r.label} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
+                  <span style={{ fontSize: 14, color: r.pass ? 'var(--green)' : 'var(--red)', flexShrink: 0 }}>{r.pass ? '✓' : '✗'}</span>
+                  <span style={{ flex: 1, fontSize: 12, color: 'var(--text2)' }}>{r.label}</span>
+                  <span style={{ fontFamily: mono, fontSize: 11, color: 'var(--text3)' }}>{r.detail}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Momentum breakdown */}
+            <div>
+              <div style={{ fontSize: 10, color: 'var(--accent)', fontFamily: mono, letterSpacing: 2, marginBottom: 8 }}>MOMENTUM SCORE — {qs.scores.momentum}/100 (weight: 40%)</div>
+              {[
+                { l: '1 Month return', v: qs.momentum.m1 },
+                { l: '3 Month return', v: qs.momentum.m3 },
+                { l: '6 Month return', v: qs.momentum.m6 },
+                { l: '12 Month return', v: qs.momentum.m1y },
+              ].map(m => (
+                <div key={m.l} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
+                  <span style={{ fontSize: 12, color: 'var(--text2)' }}>{m.l}</span>
+                  <span style={{ fontFamily: mono, fontSize: 12, fontWeight: 600, color: m.v == null ? 'var(--text3)' : m.v >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                    {m.v == null ? '—' : (m.v >= 0 ? '+' : '') + m.v.toFixed(2) + '%'}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* Mean reversion */}
+            <div>
+              <div style={{ fontSize: 10, color: 'var(--accent)', fontFamily: mono, letterSpacing: 2, marginBottom: 8 }}>MEAN REVERSION — {qs.scores.meanReversion}/100 (weight: 10%)</div>
+              {[
+                { l: 'RSI (14)', v: qs.rsi.toFixed(1), note: qs.rsi > 70 ? 'Overbought' : qs.rsi < 30 ? 'Oversold — bullish signal' : 'Neutral' },
+                { l: 'Stochastic %K', v: qs.stochK.toFixed(1), note: qs.stochK > 80 ? 'Overbought' : qs.stochK < 20 ? 'Oversold — bullish signal' : 'Neutral' },
+                { l: 'BB Position', v: (qs.bbPosition * 100).toFixed(0) + '%', note: qs.bbPosition < 0.2 ? 'Near lower band — opportunity' : qs.bbPosition > 0.8 ? 'Near upper band — caution' : 'Mid-range' },
+                { l: 'Z-Score (20d)', v: qs.zScore.toFixed(2), note: Math.abs(qs.zScore) > 2 ? 'Extreme deviation' : 'Within normal range' },
+              ].map(r => (
+                <div key={r.l} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
+                  <span style={{ fontSize: 12, color: 'var(--text2)' }}>{r.l}</span>
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                    <span style={{ fontFamily: mono, fontSize: 12, fontWeight: 600 }}>{r.v}</span>
+                    <span style={{ fontSize: 11, color: 'var(--text3)' }}>{r.note}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Risk */}
+            <div>
+              <div style={{ fontSize: 10, color: 'var(--accent)', fontFamily: mono, letterSpacing: 2, marginBottom: 8 }}>RISK SCORE — {qs.scores.risk}/100 (weight: 10%)</div>
+              {[
+                { l: 'Historical Volatility (20d ann.)', v: qs.hv20.toFixed(1) + '%', note: qs.hv20 < 15 ? 'Low volatility' : qs.hv20 < 40 ? 'Moderate' : 'High volatility' },
+                { l: 'Max Drawdown (252d)', v: qs.maxDrawdown252.toFixed(1) + '%', note: qs.maxDrawdown252 < 10 ? 'Minimal drawdown' : qs.maxDrawdown252 < 35 ? 'Moderate' : 'Significant drawdown' },
+              ].map(r => (
+                <div key={r.l} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
+                  <span style={{ fontSize: 12, color: 'var(--text2)' }}>{r.l}</span>
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                    <span style={{ fontFamily: mono, fontSize: 12, fontWeight: 600 }}>{r.v}</span>
+                    <span style={{ fontSize: 11, color: 'var(--text3)' }}>{r.note}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ fontSize: 11, color: 'var(--text3)', fontFamily: mono, textAlign: 'center', paddingTop: 4 }}>
+              Scores ≥75 = STRONG BUY · ≥58 = BUY · ≥42 = NEUTRAL · ≥28 = SELL · &lt;28 = STRONG SELL
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
     </>
   )
 }

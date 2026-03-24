@@ -40,7 +40,7 @@ function groupByDate<T extends { date: string }>(items: T[]): Record<string, T[]
 export default function CalendarPage() {
   const [data, setData]     = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [tab, setTab]       = useState<'economic' | 'earnings'>('economic')
+  const [tab, setTab]       = useState<'economic' | 'earnings'>('earnings')
 
   useEffect(() => {
     fetch('/api/calendar').then(r => r.json()).then(setData).finally(() => setLoading(false))

@@ -45,10 +45,7 @@ export default function Home() {
 
           <div style={{ display: 'flex', gap: 12, marginBottom: 48 }}>
             <Link href="/dashboard" style={{ padding: '14px 28px', background: 'var(--accent)', color: '#000', fontSize: 12, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', borderRadius: 2, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-              Request Access →
-            </Link>
-            <Link href="/dashboard" style={{ padding: '14px 28px', border: '1px solid var(--border3)', color: 'var(--text2)', fontSize: 12, fontWeight: 600, letterSpacing: 2, textTransform: 'uppercase', borderRadius: 2 }}>
-              View Demo
+              Launch Terminal →
             </Link>
           </div>
 
