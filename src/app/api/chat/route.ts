@@ -8,9 +8,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'messages required' }, { status: 400 })
   }
 
-  const apiKey = process.env.GEMINI_API_KEY
+  const apiKey = process.env.GROQ_API_KEY
   if (!apiKey) {
-    return NextResponse.json({ error: 'Gemini API key not configured' }, { status: 500 })
+    return NextResponse.json({ error: 'Groq API key not configured' }, { status: 500 })
   }
 
   const systemPrompt = stockContext
@@ -42,38 +42,36 @@ Current stock context:
 Answer questions about this stock using the data above. Be concise (2-4 sentences unless more detail is needed). When asked for a recommendation, give a balanced view with reasoning. Do not make up data — if something isn't in the context, say so.`
     : `You are AlphaEdge AI, a financial analyst assistant. Help users with stock research, financial concepts, and investment analysis. Be concise and data-driven.`
 
-  // Build Gemini-format contents array (no system role — prepend as first user/model turn)
-  const geminiContents = [
-    { role: 'user', parts: [{ text: systemPrompt + '\n\nUnderstood. I am ready to assist.' }] },
-    { role: 'model', parts: [{ text: 'Understood. I am AlphaEdge AI, ready to help you analyze ' + (stockContext?.ticker ?? 'stocks') + '. What would you like to know?' }] },
+  const groqMessages = [
+    { role: 'system', content: systemPrompt },
     ...messages.map((m: { role: string; content: string }) => ({
-      role: m.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: m.content }],
+      role: m.role,
+      content: m.content,
     })),
   ]
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`
-
-  const res = await fetch(url, {
+  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
     body: JSON.stringify({
-      contents: geminiContents,
-      generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 512,
-      },
+      model: 'llama-3.1-8b-instant',
+      messages: groqMessages,
+      temperature: 0.7,
+      max_tokens: 512,
     }),
   })
 
   if (!res.ok) {
     const err = await res.text()
-    console.error('[chat] Gemini error:', err)
-    return NextResponse.json({ error: 'Gemini API error' }, { status: 500 })
+    console.error('[chat] Groq error:', err)
+    return NextResponse.json({ error: 'AI API error' }, { status: 500 })
   }
 
   const json = await res.json()
-  const text = json?.candidates?.[0]?.content?.parts?.[0]?.text ?? 'No response generated.'
+  const text = json?.choices?.[0]?.message?.content ?? 'No response generated.'
 
   return NextResponse.json({ reply: text })
 }
