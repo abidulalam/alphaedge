@@ -124,7 +124,7 @@ function FedRatesTab() {
       </div>
 
       {/* Current rates grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 28 }}>
+      <div className="metric-grid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 28 }}>
         {rates.map(r => (
           <div key={r.symbol} style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, padding: '12px 14px' }}>
             <div style={{ fontSize: 10, color: 'var(--text3)', fontFamily: mono, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6 }}>{r.label}</div>
@@ -323,7 +323,7 @@ export default function Dashboard() {
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
         {/* SIDEBAR */}
-        <aside style={{ width: wlOpen ? 240 : 40, flexShrink: 0, background: 'var(--bg2)', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden', transition: 'width 0.2s ease' }}>
+        <aside className="dash-sidebar" style={{ width: wlOpen ? 240 : 40, flexShrink: 0, background: 'var(--bg2)', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden', transition: 'width 0.2s ease' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 10px 10px 14px', fontFamily: mono, fontSize: 10, color: 'var(--text3)', letterSpacing: 2, textTransform: 'uppercase', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
             {wlOpen && <span style={{ whiteSpace: 'nowrap', overflow: 'hidden' }}>Watchlist ({watchlist.length})</span>}
             <div style={{ display: 'flex', gap: 6, marginLeft: wlOpen ? 0 : 'auto', marginRight: wlOpen ? 0 : 'auto' }}>
@@ -375,7 +375,7 @@ export default function Dashboard() {
         </aside>
 
         {/* MAIN */}
-        <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <main className="dash-main" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', height: 44, borderBottom: '1px solid var(--border)', background: 'var(--bg2)', flexShrink: 0, overflowX: 'auto' }}>
             <div style={{ display: 'flex', height: '100%', flexShrink: 0 }}>
               {TABS.map(t => (
@@ -391,7 +391,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px' }}>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px' }} className="page-pad">
             {loading && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '60px 0' }}>
                 <div style={{ width: 20, height: 20, border: '2px solid var(--border2)', borderTopColor: 'var(--accent)', borderRadius: '50%', animation: 'spin .7s linear infinite' }} />
@@ -410,7 +410,7 @@ export default function Dashboard() {
             {!loading && !error && data && (
               <div>
                 {/* STOCK HEADER */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, paddingBottom: 14, borderBottom: '1px solid var(--border)' }}>
+                <div className="stock-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, paddingBottom: 14, borderBottom: '1px solid var(--border)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     {data.logo && <img src={data.logo} alt="" style={{ width: 32, height: 32, borderRadius: 4, objectFit: 'contain', background: '#fff', padding: 2 }} />}
                     <div>
@@ -426,8 +426,8 @@ export default function Dashboard() {
                       </div>
                     </div>
                   </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontFamily: mono, fontSize: 26, fontWeight: 600, color: up ? 'var(--green)' : 'var(--red)' }}>{data.price ? '$' + data.price.toFixed(2) : '—'}</div>
+                  <div className="stock-price-block" style={{ textAlign: 'right' }}>
+                    <div className="stock-price" style={{ fontFamily: mono, fontSize: 26, fontWeight: 600, color: up ? 'var(--green)' : 'var(--red)' }}>{data.price ? '$' + data.price.toFixed(2) : '—'}</div>
                     {data.changePct != null && (
                       <div style={{ fontFamily: mono, fontSize: 12, color: up ? 'var(--green)' : 'var(--red)', marginTop: 3 }}>
                         {up ? '▲' : '▼'} ${Math.abs(data.change ?? 0).toFixed(2)} ({Math.abs(data.changePct).toFixed(2)}%)
@@ -444,7 +444,7 @@ export default function Dashboard() {
                       <div style={{ marginBottom: 16 }}>
                         <AdvancedChart ticker={ticker} initialBars={data.ohlcv ?? []} />
                       </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginBottom: 12 }}>
+                      <div className="metric-grid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginBottom: 12 }}>
                         <MBox label={<Abbr term="P/E">P/E (TTM)</Abbr>} value={data.pe ? data.pe.toFixed(1) : '—'} />
                         <MBox label={<Abbr term="EPS">EPS (TTM)</Abbr>} value={data.eps ? '$' + data.eps.toFixed(2) : '—'} />
                         <MBox label={<Abbr term="EV/EBITDA">EV/EBITDA</Abbr>} value={data.evToEbitda ? data.evToEbitda.toFixed(1) : '—'} />
@@ -608,7 +608,7 @@ export default function Dashboard() {
                         {qs.macdCrossBull && <Abbr term="MACD" width={280}><span style={{ fontSize: 11, padding: '4px 10px', border: '1px solid var(--green)', color: 'var(--green)', borderRadius: 4, fontFamily: mono, letterSpacing: 1 }}>↑ MACD BULL X</span></Abbr>}
                         {qs.macdCrossBear && <Abbr term="MACD" width={280}><span style={{ fontSize: 11, padding: '4px 10px', border: '1px solid var(--red)',   color: 'var(--red)',   borderRadius: 4, fontFamily: mono, letterSpacing: 1 }}>↓ MACD BEAR X</span></Abbr>}
                       </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16 }}>
+                      <div className="signal-scores-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16 }}>
                         {([
                           { label: 'TREND',     term: 'TREND',     score: qs.scores.trend,         desc: 'MA alignment & MACD' },
                           { label: 'MOMENTUM',  term: 'MOMENTUM',  score: qs.scores.momentum,      desc: '1M–1Y price returns' },

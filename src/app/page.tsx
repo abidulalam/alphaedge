@@ -27,14 +27,14 @@ export default function Home() {
       {modal && <AuthModal mode={modal} onClose={() => setModal(null)} />}
 
       {/* HERO */}
-      <section style={{ maxWidth: 1280, margin: '0 auto', padding: '80px 48px 72px', display: 'grid', gridTemplateColumns: '1fr 480px', gap: 64, alignItems: 'center' }}>
+      <section className="hero-grid" style={{ maxWidth: 1280, margin: '0 auto', padding: '80px 48px 72px', display: 'grid', gridTemplateColumns: '1fr 480px', gap: 64, alignItems: 'center' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 28 }}>
             <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--green)', display: 'inline-block', animation: 'pulse 2s infinite' }} />
             <span style={{ fontSize: 11, color: 'var(--green)', letterSpacing: 3, textTransform: 'uppercase', fontWeight: 600 }}>Systems Online — All Markets Active</span>
           </div>
 
-          <h1 style={{ fontSize: 88, fontWeight: 700, lineHeight: 0.95, letterSpacing: -2, marginBottom: 28, textTransform: 'uppercase' }}>
+          <h1 className="hero-h1" style={{ fontSize: 88, fontWeight: 700, lineHeight: 0.95, letterSpacing: -2, marginBottom: 28, textTransform: 'uppercase' }}>
             <span style={{ color: 'var(--accent)', display: 'block' }}>Alpha</span>
             <span style={{ color: 'var(--text)', display: 'block' }}>Edge_</span>
           </h1>
@@ -60,7 +60,7 @@ export default function Home() {
         </div>
 
         {/* TERMINAL PANEL */}
-        <div style={{ border: '1px solid var(--border2)', borderRadius: 4, overflow: 'hidden', background: 'var(--bg2)' }}>
+        <div className="hero-terminal" style={{ border: '1px solid var(--border2)', borderRadius: 4, overflow: 'hidden', background: 'var(--bg2)' }}>
           <div style={{ background: 'var(--bg3)', padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontSize: 12, color: 'var(--accent)' }}>~</span>
@@ -121,7 +121,7 @@ export default function Home() {
             <div style={{ fontSize: 10, color: 'var(--accent)', letterSpacing: 3, textTransform: 'uppercase', marginBottom: 12 }}>// Capabilities</div>
             <h2 style={{ fontSize: 42, fontWeight: 700, letterSpacing: -1, textTransform: 'uppercase' }}>Everything A Hedge<br />Fund Has. Built For You.</h2>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 1, background: 'var(--border)', border: '1px solid var(--border)', borderRadius: 4, overflow: 'hidden' }}>
+          <div className="features-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 1, background: 'var(--border)', border: '1px solid var(--border)', borderRadius: 4, overflow: 'hidden' }}>
             {[
               { tag: '// 01', title: 'Live Market Data', desc: 'Real-time prices via Finnhub. Quotes, charts, volume — refreshed every 30 seconds.' },
               { tag: '// 02', title: 'Quant Signals', desc: 'RSI, MACD, Bollinger Bands, SMA 20/50/200, momentum, mean-reversion z-score.' },

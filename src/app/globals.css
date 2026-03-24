@@ -83,3 +83,48 @@ select:focus { border-color: var(--accent); }
 @keyframes blink { 50% { opacity: 0; } }
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+/* ── Mobile viewport meta behaviour ── */
+html { -webkit-text-size-adjust: 100%; }
+
+/* ── Mobile utility classes ── */
+@media (max-width: 768px) {
+  /* Home page hero: stack columns */
+  .hero-grid { grid-template-columns: 1fr !important; padding: 40px 20px 32px !important; gap: 32px !important; }
+  .hero-h1 { font-size: 56px !important; }
+  .hero-terminal { display: none !important; }
+  .features-grid { grid-template-columns: 1fr !important; }
+
+  /* Navbar: hide center nav links, compress */
+  .nav-links { display: none !important; }
+  .nav-search { max-width: 160px !important; }
+  .nav-time { display: none !important; }
+
+  /* Dashboard: collapse sidebar by default, let main fill width */
+  .dash-sidebar { display: none !important; }
+  .dash-main { width: 100% !important; }
+
+  /* Stock header: stack price below name */
+  .stock-header { flex-direction: column !important; align-items: flex-start !important; gap: 8px !important; }
+  .stock-price-block { text-align: left !important; }
+  .stock-price { font-size: 22px !important; }
+
+  /* Overview metric grid: 2 cols on mobile */
+  .metric-grid-4 { grid-template-columns: repeat(2, 1fr) !important; }
+
+  /* Quant signal scores: 2 cols */
+  .signal-scores-grid { grid-template-columns: repeat(2, 1fr) !important; }
+
+  /* Portfolio table: allow horizontal scroll */
+  .portfolio-table { overflow-x: auto !important; }
+
+  /* Financials table: reduce label width */
+  .fin-label { width: 110px !important; font-size: 11px !important; }
+
+  /* Calendar: reduce padding */
+  .cal-content { padding: 12px 12px !important; }
+
+  /* General spacing */
+  .page-pad { padding: 16px 16px !important; }
+  .section-pad { padding: 40px 20px !important; }
+}
