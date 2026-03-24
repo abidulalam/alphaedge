@@ -52,7 +52,7 @@ Answer questions about this stock using the data above. Be concise (2-4 sentence
     })),
   ]
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`
 
   const res = await fetch(url, {
     method: 'POST',
