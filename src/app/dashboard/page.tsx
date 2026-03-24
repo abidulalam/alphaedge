@@ -1,5 +1,6 @@
 'use client'
 import React, { useEffect, useState, useCallback } from 'react'
+import { useIsMobile } from '@/hooks/useIsMobile'
 import { useSearchParams, useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import ScoreBar from '@/components/ScoreBar'
@@ -124,7 +125,7 @@ function FedRatesTab() {
       </div>
 
       {/* Current rates grid */}
-      <div className="metric-grid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 28 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginBottom: 28 }}>
         {rates.map(r => (
           <div key={r.symbol} style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, padding: '12px 14px' }}>
             <div style={{ fontSize: 10, color: 'var(--text3)', fontFamily: mono, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6 }}>{r.label}</div>
@@ -313,6 +314,7 @@ export default function Dashboard() {
     setShowAdd(false)
   }
 
+  const isMobile = useIsMobile()
   const up = (data?.changePct ?? 0) >= 0
   const qs = data?.quantSignals
 
@@ -322,8 +324,8 @@ export default function Dashboard() {
       <Navbar />
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
-        {/* SIDEBAR */}
-        <aside className="dash-sidebar" style={{ width: wlOpen ? 240 : 40, flexShrink: 0, background: 'var(--bg2)', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden', transition: 'width 0.2s ease' }}>
+        {/* SIDEBAR — hidden on mobile */}
+        <aside style={{ width: isMobile ? 0 : wlOpen ? 240 : 40, flexShrink: 0, background: 'var(--bg2)', borderRight: isMobile ? 'none' : '1px solid var(--border)', display: isMobile ? 'none' : 'flex', flexDirection: 'column', overflow: 'hidden', transition: 'width 0.2s ease' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 10px 10px 14px', fontFamily: mono, fontSize: 10, color: 'var(--text3)', letterSpacing: 2, textTransform: 'uppercase', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
             {wlOpen && <span style={{ whiteSpace: 'nowrap', overflow: 'hidden' }}>Watchlist ({watchlist.length})</span>}
             <div style={{ display: 'flex', gap: 6, marginLeft: wlOpen ? 0 : 'auto', marginRight: wlOpen ? 0 : 'auto' }}>
@@ -376,22 +378,24 @@ export default function Dashboard() {
 
         {/* MAIN */}
         <main className="dash-main" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', height: 44, borderBottom: '1px solid var(--border)', background: 'var(--bg2)', flexShrink: 0, overflowX: 'auto' }}>
-            <div style={{ display: 'flex', height: '100%', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: isMobile ? '0 4px' : '0 20px', height: 44, borderBottom: '1px solid var(--border)', background: 'var(--bg2)', flexShrink: 0, overflowX: 'auto' }}>
+            <div style={{ display: 'flex', height: '100%' }}>
               {TABS.map(t => (
-                <button key={t} onClick={() => setTab(t)} style={{ padding: '0 14px', fontSize: 12, whiteSpace: 'nowrap', color: t === tab ? 'var(--accent)' : 'var(--text3)', borderBottom: '2px solid ' + (t === tab ? 'var(--accent)' : 'transparent'), height: '100%', fontFamily: mono }}>
+                <button key={t} onClick={() => setTab(t)} style={{ padding: isMobile ? '0 8px' : '0 14px', fontSize: isMobile ? 10 : 12, whiteSpace: 'nowrap', color: t === tab ? 'var(--accent)' : 'var(--text3)', borderBottom: '2px solid ' + (t === tab ? 'var(--accent)' : 'transparent'), height: '100%', fontFamily: mono }}>
                   {t}
                 </button>
               ))}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-              {lastUpdated && <span style={{ fontFamily: mono, fontSize: 10, color: 'var(--text3)' }}>↻ {lastUpdated.toLocaleTimeString()}</span>}
-              {data && <button onClick={() => addToWatchlist(ticker)} style={{ padding: '4px 10px', border: '1px solid var(--border2)', color: 'var(--accent)', fontSize: 11, fontFamily: mono, borderRadius: 3 }}>+ List</button>}
-              <button onClick={() => { loadStock(ticker, true); loadWatch() }} style={{ padding: '4px 10px', border: '1px solid var(--border2)', color: 'var(--text2)', fontSize: 11, fontFamily: mono, borderRadius: 3 }}>↻</button>
-            </div>
+            {!isMobile && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                {lastUpdated && <span style={{ fontFamily: mono, fontSize: 10, color: 'var(--text3)' }}>↻ {lastUpdated.toLocaleTimeString()}</span>}
+                {data && <button onClick={() => addToWatchlist(ticker)} style={{ padding: '4px 10px', border: '1px solid var(--border2)', color: 'var(--accent)', fontSize: 11, fontFamily: mono, borderRadius: 3 }}>+ List</button>}
+                <button onClick={() => { loadStock(ticker, true); loadWatch() }} style={{ padding: '4px 10px', border: '1px solid var(--border2)', color: 'var(--text2)', fontSize: 11, fontFamily: mono, borderRadius: 3 }}>↻</button>
+              </div>
+            )}
           </div>
 
-          <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px' }} className="page-pad">
+          <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '12px 10px' : '16px 20px' }}>
             {loading && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '60px 0' }}>
                 <div style={{ width: 20, height: 20, border: '2px solid var(--border2)', borderTopColor: 'var(--accent)', borderRadius: '50%', animation: 'spin .7s linear infinite' }} />
@@ -410,7 +414,7 @@ export default function Dashboard() {
             {!loading && !error && data && (
               <div>
                 {/* STOCK HEADER */}
-                <div className="stock-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, paddingBottom: 14, borderBottom: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: isMobile ? 8 : 0, marginBottom: 16, paddingBottom: 14, borderBottom: '1px solid var(--border)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     {data.logo && <img src={data.logo} alt="" style={{ width: 32, height: 32, borderRadius: 4, objectFit: 'contain', background: '#fff', padding: 2 }} />}
                     <div>
@@ -426,8 +430,8 @@ export default function Dashboard() {
                       </div>
                     </div>
                   </div>
-                  <div className="stock-price-block" style={{ textAlign: 'right' }}>
-                    <div className="stock-price" style={{ fontFamily: mono, fontSize: 26, fontWeight: 600, color: up ? 'var(--green)' : 'var(--red)' }}>{data.price ? '$' + data.price.toFixed(2) : '—'}</div>
+                  <div style={{ textAlign: isMobile ? 'left' : 'right' }}>
+                    <div style={{ fontFamily: mono, fontSize: isMobile ? 22 : 26, fontWeight: 600, color: up ? 'var(--green)' : 'var(--red)' }}>{data.price ? '$' + data.price.toFixed(2) : '—'}</div>
                     {data.changePct != null && (
                       <div style={{ fontFamily: mono, fontSize: 12, color: up ? 'var(--green)' : 'var(--red)', marginTop: 3 }}>
                         {up ? '▲' : '▼'} ${Math.abs(data.change ?? 0).toFixed(2)} ({Math.abs(data.changePct).toFixed(2)}%)
@@ -439,12 +443,12 @@ export default function Dashboard() {
 
                 {/* OVERVIEW */}
                 {tab === 'Overview' && (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: 16 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 280px', gap: 16 }}>
                     <div>
                       <div style={{ marginBottom: 16 }}>
                         <AdvancedChart ticker={ticker} initialBars={data.ohlcv ?? []} />
                       </div>
-                      <div className="metric-grid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginBottom: 12 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(4,1fr)', gap: 8, marginBottom: 12 }}>
                         <MBox label={<Abbr term="P/E">P/E (TTM)</Abbr>} value={data.pe ? data.pe.toFixed(1) : '—'} />
                         <MBox label={<Abbr term="EPS">EPS (TTM)</Abbr>} value={data.eps ? '$' + data.eps.toFixed(2) : '—'} />
                         <MBox label={<Abbr term="EV/EBITDA">EV/EBITDA</Abbr>} value={data.evToEbitda ? data.evToEbitda.toFixed(1) : '—'} />
@@ -548,7 +552,7 @@ export default function Dashboard() {
                     <div style={{ padding: '12px 16px', background: 'rgba(255,85,0,.06)', border: '1px solid rgba(255,85,0,.2)', borderRadius: 6, fontSize: 13, color: 'var(--text2)', marginBottom: 24 }}>
                       Technical signals unavailable — insufficient price history from data provider. Showing fundamental signals instead.
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 20 }}>
                       <div>
                         <SHead label="Valuation Signals" />
                         <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 14px 8px' }}>
@@ -608,7 +612,7 @@ export default function Dashboard() {
                         {qs.macdCrossBull && <Abbr term="MACD" width={280}><span style={{ fontSize: 11, padding: '4px 10px', border: '1px solid var(--green)', color: 'var(--green)', borderRadius: 4, fontFamily: mono, letterSpacing: 1 }}>↑ MACD BULL X</span></Abbr>}
                         {qs.macdCrossBear && <Abbr term="MACD" width={280}><span style={{ fontSize: 11, padding: '4px 10px', border: '1px solid var(--red)',   color: 'var(--red)',   borderRadius: 4, fontFamily: mono, letterSpacing: 1 }}>↓ MACD BEAR X</span></Abbr>}
                       </div>
-                      <div className="signal-scores-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(4,1fr)', gap: isMobile ? 10 : 16 }}>
                         {([
                           { label: 'TREND',     term: 'TREND',     score: qs.scores.trend,         desc: 'MA alignment & MACD' },
                           { label: 'MOMENTUM',  term: 'MOMENTUM',  score: qs.scores.momentum,      desc: '1M–1Y price returns' },
@@ -630,7 +634,7 @@ export default function Dashboard() {
                       </div>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 20 }}>
                       {/* LEFT */}
                       <div>
                         <SHead label="Trend & Moving Averages" />

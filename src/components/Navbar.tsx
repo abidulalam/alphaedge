@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase-browser'
 import SearchBar from './SearchBar'
 import AuthModal from './AuthModal'
 import type { User } from '@supabase/supabase-js'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 const NAV_LINKS = [
   ['Markets', '/markets'],
@@ -21,6 +22,7 @@ export default function Navbar() {
   const [modal, setModal]     = useState<'signin' | 'signup' | null>(null)
   const [time, setTime]       = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
+  const isMobile = useIsMobile()
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data.user))
@@ -59,8 +61,8 @@ export default function Navbar() {
           </Link>
         </div>
 
-        {/* CENTER NAV — hidden on mobile via class */}
-        <div className="nav-links" style={{ display: 'flex', alignItems: 'center', gap: 24, fontSize: 11, letterSpacing: 2, textTransform: 'uppercase' }}>
+        {/* CENTER NAV — hidden on mobile */}
+        <div style={{ display: isMobile ? 'none' : 'flex', alignItems: 'center', gap: 24, fontSize: 11, letterSpacing: 2, textTransform: 'uppercase' }}>
           {NAV_LINKS.map(([label, href]) => (
             <Link key={label} href={href} style={{ color: 'var(--text2)', transition: 'color 0.1s' }}
               onMouseEnter={e => (e.currentTarget.style.color = 'var(--text)')}
@@ -70,39 +72,35 @@ export default function Navbar() {
         </div>
 
         {/* SEARCH */}
-        <div className="nav-search" style={{ flex: 1, maxWidth: 320 }}>
+        <div style={{ flex: 1, maxWidth: isMobile ? 160 : 320 }}>
           <SearchBar compact />
         </div>
 
         {/* RIGHT */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-          {time && (
-            <span className="nav-time" style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent)', letterSpacing: 1 }}>
-              {time}
-            </span>
+          {!isMobile && time && (
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent)', letterSpacing: 1 }}>{time}</span>
           )}
-          <div className="nav-time" style={{ width: 1, height: 20, background: 'var(--border2)' }} />
-          {user ? (
+          {!isMobile && <div style={{ width: 1, height: 20, background: 'var(--border2)' }} />}
+          {!isMobile && (user ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span className="nav-time" style={{ fontSize: 11, color: 'var(--text3)', letterSpacing: 1 }}>{user.email?.split('@')[0].toUpperCase()}</span>
-              <button onClick={signOut} style={{ padding: '5px 12px', border: '1px solid var(--border2)', color: 'var(--text2)', fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', borderRadius: 2 }}>Out</button>
+              <span style={{ fontSize: 11, color: 'var(--text3)', letterSpacing: 1 }}>{user.email?.split('@')[0].toUpperCase()}</span>
+              <button onClick={signOut} style={{ padding: '5px 12px', border: '1px solid var(--border2)', color: 'var(--text2)', fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', borderRadius: 2 }}>Sign Out</button>
             </div>
           ) : (
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={() => setModal('signin')} style={{ padding: '5px 12px', border: '1px solid var(--border2)', color: 'var(--text2)', fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', borderRadius: 2 }}>Log In</button>
               <button onClick={() => setModal('signup')} style={{ padding: '5px 12px', background: 'var(--accent)', color: '#000', fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', borderRadius: 2 }}>Join</button>
             </div>
+          ))}
+          {/* Hamburger — mobile only */}
+          {isMobile && (
+            <button onClick={() => setMenuOpen(o => !o)} style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '6px 4px', background: 'transparent', border: 'none', cursor: 'pointer' }}>
+              <span style={{ display: 'block', width: 20, height: 2, background: menuOpen ? 'var(--accent)' : 'var(--text2)', borderRadius: 1 }} />
+              <span style={{ display: 'block', width: 20, height: 2, background: menuOpen ? 'var(--accent)' : 'var(--text2)', borderRadius: 1 }} />
+              <span style={{ display: 'block', width: 20, height: 2, background: menuOpen ? 'var(--accent)' : 'var(--text2)', borderRadius: 1 }} />
+            </button>
           )}
-          {/* Hamburger — only visible on mobile */}
-          <button
-            className="nav-hamburger"
-            onClick={() => setMenuOpen(o => !o)}
-            style={{ display: 'none', flexDirection: 'column', gap: 4, padding: '6px 4px', background: 'transparent', border: 'none', cursor: 'pointer' }}
-          >
-            <span style={{ display: 'block', width: 20, height: 2, background: menuOpen ? 'var(--accent)' : 'var(--text2)', borderRadius: 1, transition: 'background 0.15s' }} />
-            <span style={{ display: 'block', width: 20, height: 2, background: menuOpen ? 'var(--accent)' : 'var(--text2)', borderRadius: 1, transition: 'background 0.15s' }} />
-            <span style={{ display: 'block', width: 20, height: 2, background: menuOpen ? 'var(--accent)' : 'var(--text2)', borderRadius: 1, transition: 'background 0.15s' }} />
-          </button>
         </div>
       </nav>
 
@@ -124,12 +122,6 @@ export default function Navbar() {
       )}
 
       {modal && <AuthModal mode={modal} onClose={() => setModal(null)} />}
-
-      <style>{`
-        @media (max-width: 768px) {
-          .nav-hamburger { display: flex !important; }
-        }
-      `}</style>
     </>
   )
 }
