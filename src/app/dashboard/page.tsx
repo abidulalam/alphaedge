@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic'
 import ScoreBar from '@/components/ScoreBar'
 import Navbar from '@/components/Navbar'
 import Abbr from '@/components/Abbr'
+import ChatBot from '@/components/ChatBot'
 
 const AdvancedChart = dynamic(() => import('@/components/AdvancedChart'), { ssr: false })
 
@@ -315,6 +316,7 @@ export default function Dashboard() {
   const qs = data?.quantSignals
 
   return (
+    <>
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
       <Navbar />
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
@@ -905,5 +907,7 @@ export default function Dashboard() {
         </main>
       </div>
     </div>
+    {data && <ChatBot stockContext={data} />}
+    </>
   )
 }
