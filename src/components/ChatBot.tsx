@@ -33,19 +33,38 @@ interface StockContext {
 }
 
 const SUGGESTIONS = [
+  'Should I long or short this stock right now?',
+  'What is a good entry price and stop loss?',
   'Is this stock overvalued?',
   'Summarize the key risks',
-  'What does the PEG ratio tell us?',
-  'How is the cash flow?',
 ]
 
-export default function ChatBot({ stockContext }: { stockContext?: StockContext }) {
+export default function ChatBot({ stockContext, onAskAI }: { stockContext?: StockContext; onAskAI?: (fn: (q: string) => void) => void }) {
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+
+  const [pendingQ, setPendingQ] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (onAskAI) {
+      onAskAI((q: string) => {
+        setOpen(true)
+        setMessages([])
+        setPendingQ(q)
+      })
+    }
+  }, [onAskAI])
+
+  useEffect(() => {
+    if (pendingQ !== null) {
+      setPendingQ(null)
+      send(pendingQ)
+    }
+  }, [pendingQ])
 
   useEffect(() => {
     if (open) {

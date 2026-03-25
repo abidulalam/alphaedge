@@ -1,5 +1,5 @@
 'use client'
-import React, { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback, useRef } from 'react'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { useSearchParams, useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
@@ -11,7 +11,7 @@ import ChatBot from '@/components/ChatBot'
 const AdvancedChart = dynamic(() => import('@/components/AdvancedChart'), { ssr: false })
 
 const DEFAULT_WATCHLIST = ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'META', 'GOOGL']
-const TABS = ['Overview', 'Quant Signals', 'Financials', 'Earnings', 'Insiders', 'AI Report', 'Fed Rates', 'News']
+const TABS = ['Overview', 'Quant Signals', 'Trade Setup', 'Financials', 'Earnings', 'Insiders', 'AI Report', 'Fed Rates', 'News']
 const WL_KEY = 'alphaedge_watchlist'
 
 const mono = 'IBM Plex Mono, monospace'
@@ -236,6 +236,223 @@ function FedRatesTab() {
   )
 }
 
+function TradeSetup({ data, qs, isMobile, onAskAI }: { data: any; qs: any; isMobile: boolean; onAskAI: (q: string) => void }) {
+  const [horizon, setHorizon] = useState<'swing' | 'position' | 'scalp'>('swing')
+  const [riskTolerance, setRiskTolerance] = useState<'conservative' | 'moderate' | 'aggressive'>('moderate')
+  const [positionSize, setPositionSize] = useState('')
+
+  const price = data.price ?? 0
+  const atr = qs?.atr14 ?? price * 0.02
+  const atrPct = qs?.atrPct ?? 2
+
+  // Risk multipliers by horizon
+  const riskMult = { scalp: 0.5, swing: 1, position: 2 }[horizon]
+  const tpMult   = { conservative: 1.5, moderate: 2.5, aggressive: 4 }[riskTolerance]
+
+  // Signal-based direction
+  const trend = qs?.trend ?? null
+  const overallScore = qs
+    ? +(qs.scores.trend * 0.4 + qs.scores.momentum * 0.4 + qs.scores.meanReversion * 0.1 + qs.scores.risk * 0.1).toFixed(1)
+    : null
+
+  const direction: 'LONG' | 'SHORT' | 'NEUTRAL' =
+    overallScore != null
+      ? overallScore >= 58 ? 'LONG' : overallScore <= 42 ? 'SHORT' : 'NEUTRAL'
+      : 'NEUTRAL'
+
+  const dirColor = direction === 'LONG' ? 'var(--green)' : direction === 'SHORT' ? 'var(--red)' : 'var(--amber)'
+
+  // Trade levels
+  const stopDist = atr * riskMult
+  const tpDist   = stopDist * tpMult
+  const rrRatio  = tpMult
+
+  const longEntry  = price
+  const longStop   = +(price - stopDist).toFixed(2)
+  const longTP1    = +(price + stopDist * 1.5).toFixed(2)
+  const longTP2    = +(price + tpDist).toFixed(2)
+
+  const shortEntry = price
+  const shortStop  = +(price + stopDist).toFixed(2)
+  const shortTP1   = +(price - stopDist * 1.5).toFixed(2)
+  const shortTP2   = +(price - tpDist).toFixed(2)
+
+  const entry = direction === 'SHORT' ? shortEntry : longEntry
+  const stop  = direction === 'SHORT' ? shortStop  : longStop
+  const tp1   = direction === 'SHORT' ? shortTP1   : longTP1
+  const tp2   = direction === 'SHORT' ? shortTP2   : longTP2
+
+  const riskPerShare = Math.abs(entry - stop)
+  const posShares = positionSize && parseFloat(positionSize) > 0
+    ? Math.floor(parseFloat(positionSize) / riskPerShare)
+    : null
+
+  // Build reasoning bullets
+  const reasons: { ok: boolean; text: string }[] = []
+  if (qs) {
+    reasons.push({ ok: data.price > qs.sma20,  text: `Price ${data.price > qs.sma20 ? 'above' : 'below'} SMA 20 ($${qs.sma20?.toFixed(2) ?? '—'})` })
+    reasons.push({ ok: data.price > qs.sma50,  text: `Price ${data.price > qs.sma50 ? 'above' : 'below'} SMA 50 ($${qs.sma50?.toFixed(2) ?? '—'})` })
+    reasons.push({ ok: qs.macd > 0,            text: `MACD ${qs.macd > 0 ? 'positive' : 'negative'} (${qs.macd.toFixed(3)})` })
+    reasons.push({ ok: qs.momentum.m3 > 0,     text: `3-month momentum ${qs.momentum.m3 != null ? (qs.momentum.m3 >= 0 ? '+' : '') + qs.momentum.m3.toFixed(1) + '%' : 'N/A'}` })
+    reasons.push({ ok: qs.rsi < 70 && qs.rsi > 30, text: `RSI ${qs.rsi.toFixed(1)} — ${qs.rsi > 70 ? 'overbought (caution)' : qs.rsi < 30 ? 'oversold (opportunity)' : 'neutral zone'}` })
+    if (qs.goldenCross) reasons.push({ ok: true,  text: 'Golden Cross active — bullish long-term trend' })
+    if (qs.deathCross)  reasons.push({ ok: false, text: 'Death Cross active — bearish long-term trend' })
+  }
+  if (data.pe)           reasons.push({ ok: data.pe < 30,            text: `P/E of ${data.pe.toFixed(1)}x — ${data.pe < 15 ? 'value territory' : data.pe < 30 ? 'fair value' : 'elevated multiple'}` })
+  if (data.revenueGrowth != null) reasons.push({ ok: data.revenueGrowth > 0.05, text: `Revenue growth ${(data.revenueGrowth * 100).toFixed(1)}% YoY` })
+  if (data.moatScore != null)     reasons.push({ ok: data.moatScore >= 60,      text: `Moat score ${data.moatScore}/100 — ${data.moatScore >= 75 ? 'wide moat' : data.moatScore >= 55 ? 'moderate moat' : 'narrow moat'}` })
+
+  const bullCount = reasons.filter(r => r.ok).length
+  const bearCount = reasons.filter(r => !r.ok).length
+
+  function buildAIQuestion() {
+    return `Based on the current data for ${data.ticker} (price $${price.toFixed(2)}, trend: ${trend ?? 'N/A'}, RSI: ${qs?.rsi?.toFixed(1) ?? 'N/A'}, 3M momentum: ${qs?.momentum?.m3 != null ? (qs.momentum.m3 >= 0 ? '+' : '') + qs.momentum.m3.toFixed(1) + '%' : 'N/A'}, P/E: ${data.pe?.toFixed(1) ?? 'N/A'}), should I go ${direction} on this stock? My time horizon is ${horizon} and risk tolerance is ${riskTolerance}. Please give me a detailed trade setup with entry, stop loss, and take profit levels, and explain the key risks.`
+  }
+
+  const fmt = (n: number) => '$' + n.toFixed(2)
+  const pct = (a: number, b: number) => ((Math.abs(a - b) / b) * 100).toFixed(1) + '%'
+
+  return (
+    <div style={{ maxWidth: 760 }}>
+      {/* Direction verdict */}
+      <div style={{ background: 'var(--bg2)', border: `1px solid ${dirColor}44`, borderRadius: 8, padding: '18px 20px', marginBottom: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+          <div>
+            <div style={{ fontSize: 10, fontFamily: mono, color: 'var(--text3)', letterSpacing: 2, marginBottom: 6 }}>SIGNAL-BASED VERDICT — {data.ticker}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span style={{ fontSize: 32, fontWeight: 800, color: dirColor, letterSpacing: 1 }}>
+                {direction === 'LONG' ? '▲ LONG' : direction === 'SHORT' ? '▼ SHORT' : '◆ NEUTRAL'}
+              </span>
+              {overallScore != null && (
+                <span style={{ fontFamily: mono, fontSize: 13, color: 'var(--text3)', background: 'var(--bg3)', padding: '4px 10px', borderRadius: 4 }}>
+                  Score: <span style={{ color: dirColor, fontWeight: 700 }}>{overallScore}</span>/100
+                </span>
+              )}
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 8 }}>
+              {bullCount} bullish vs {bearCount} bearish factors
+              {direction === 'NEUTRAL' && ' — wait for clearer signal before entering'}
+            </div>
+          </div>
+          <button
+            onClick={() => onAskAI(buildAIQuestion())}
+            style={{ padding: '10px 18px', background: 'var(--accent)', color: '#000', fontFamily: mono, fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', borderRadius: 4, cursor: 'pointer', border: 'none', flexShrink: 0 }}
+          >
+            Ask AI for Analysis →
+          </button>
+        </div>
+      </div>
+
+      {/* User inputs */}
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: 12, marginBottom: 20 }}>
+        <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, padding: '12px 14px' }}>
+          <div style={{ fontSize: 10, fontFamily: mono, color: 'var(--text3)', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>Time Horizon</div>
+          {(['scalp', 'swing', 'position'] as const).map(h => (
+            <button key={h} onClick={() => setHorizon(h)} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '7px 10px', marginBottom: 4, borderRadius: 4, fontSize: 12, fontFamily: mono, border: `1px solid ${horizon === h ? 'var(--accent)' : 'var(--border)'}`, background: horizon === h ? 'rgba(255,85,0,.1)' : 'transparent', color: horizon === h ? 'var(--accent)' : 'var(--text2)', cursor: 'pointer', letterSpacing: 0.5 }}>
+              {h === 'scalp' ? 'Scalp (hours)' : h === 'swing' ? 'Swing (days–weeks)' : 'Position (months+)'}
+            </button>
+          ))}
+        </div>
+        <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, padding: '12px 14px' }}>
+          <div style={{ fontSize: 10, fontFamily: mono, color: 'var(--text3)', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>Risk Tolerance</div>
+          {(['conservative', 'moderate', 'aggressive'] as const).map(r => (
+            <button key={r} onClick={() => setRiskTolerance(r)} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '7px 10px', marginBottom: 4, borderRadius: 4, fontSize: 12, fontFamily: mono, border: `1px solid ${riskTolerance === r ? 'var(--accent)' : 'var(--border)'}`, background: riskTolerance === r ? 'rgba(255,85,0,.1)' : 'transparent', color: riskTolerance === r ? 'var(--accent)' : 'var(--text2)', cursor: 'pointer', letterSpacing: 0.5, textTransform: 'capitalize' }}>
+              {r === 'conservative' ? 'Conservative (1.5R)' : r === 'moderate' ? 'Moderate (2.5R)' : 'Aggressive (4R)'}
+            </button>
+          ))}
+        </div>
+        <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, padding: '12px 14px' }}>
+          <div style={{ fontSize: 10, fontFamily: mono, color: 'var(--text3)', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>Max Risk ($)</div>
+          <input
+            type="number"
+            value={positionSize}
+            onChange={e => setPositionSize(e.target.value)}
+            placeholder="e.g. 500"
+            style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 4, padding: '8px 10px', fontFamily: mono, fontSize: 14, color: 'var(--text)', outline: 'none', boxSizing: 'border-box' }}
+          />
+          {posShares != null && posShares > 0 && (
+            <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text2)', fontFamily: mono }}>
+              ≈ <span style={{ color: 'var(--accent)', fontWeight: 700 }}>{posShares} shares</span> to risk ${positionSize}
+            </div>
+          )}
+          <div style={{ marginTop: 6, fontSize: 11, color: 'var(--text3)' }}>Risk per share: {fmt(riskPerShare)}</div>
+        </div>
+      </div>
+
+      {/* Trade levels */}
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16, marginBottom: 20 }}>
+        {/* Long setup */}
+        <div style={{ background: 'var(--bg2)', border: `1px solid ${direction === 'LONG' ? 'var(--green)' : 'var(--border)'}`, borderRadius: 8, padding: '14px 16px', opacity: direction === 'SHORT' ? 0.5 : 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+            <span style={{ fontSize: 11, fontFamily: mono, color: 'var(--green)', fontWeight: 700, letterSpacing: 1 }}>▲ LONG SETUP</span>
+            {direction === 'LONG' && <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 3, background: 'rgba(0,217,126,.15)', color: 'var(--green)', fontFamily: mono }}>RECOMMENDED</span>}
+          </div>
+          {[
+            { l: 'Entry',          v: fmt(longEntry),  c: 'var(--text)',  note: 'Current market price' },
+            { l: 'Stop Loss',      v: fmt(longStop),   c: 'var(--red)',   note: `−${pct(longEntry, longStop)} (${atrPct.toFixed(1)}% ATR × ${riskMult})` },
+            { l: 'Take Profit 1',  v: fmt(longTP1),    c: 'var(--green)', note: `+${pct(longTP1, longEntry)} (1.5R)` },
+            { l: 'Take Profit 2',  v: fmt(longTP2),    c: 'var(--green)', note: `+${pct(longTP2, longEntry)} (${rrRatio}R)` },
+          ].map(row => (
+            <div key={row.l} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
+              <div>
+                <div style={{ fontSize: 12, color: 'var(--text2)' }}>{row.l}</div>
+                <div style={{ fontSize: 10, color: 'var(--text3)', fontFamily: mono, marginTop: 2 }}>{row.note}</div>
+              </div>
+              <span style={{ fontFamily: mono, fontSize: 15, fontWeight: 600, color: row.c }}>{row.v}</span>
+            </div>
+          ))}
+          <div style={{ marginTop: 10, padding: '8px 10px', background: 'rgba(0,217,126,.06)', borderRadius: 4, fontFamily: mono, fontSize: 11, color: 'var(--green)' }}>
+            R:R = 1 : {rrRatio} · Max risk: {fmt(stopDist)} per share
+          </div>
+        </div>
+
+        {/* Short setup */}
+        <div style={{ background: 'var(--bg2)', border: `1px solid ${direction === 'SHORT' ? 'var(--red)' : 'var(--border)'}`, borderRadius: 8, padding: '14px 16px', opacity: direction === 'LONG' ? 0.5 : 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+            <span style={{ fontSize: 11, fontFamily: mono, color: 'var(--red)', fontWeight: 700, letterSpacing: 1 }}>▼ SHORT SETUP</span>
+            {direction === 'SHORT' && <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 3, background: 'rgba(255,77,77,.15)', color: 'var(--red)', fontFamily: mono }}>RECOMMENDED</span>}
+          </div>
+          {[
+            { l: 'Entry',          v: fmt(shortEntry), c: 'var(--text)',  note: 'Current market price' },
+            { l: 'Stop Loss',      v: fmt(shortStop),  c: 'var(--red)',   note: `+${pct(shortStop, shortEntry)} (${atrPct.toFixed(1)}% ATR × ${riskMult})` },
+            { l: 'Take Profit 1',  v: fmt(shortTP1),   c: 'var(--green)', note: `−${pct(shortEntry, shortTP1)} (1.5R)` },
+            { l: 'Take Profit 2',  v: fmt(shortTP2),   c: 'var(--green)', note: `−${pct(shortEntry, shortTP2)} (${rrRatio}R)` },
+          ].map(row => (
+            <div key={row.l} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
+              <div>
+                <div style={{ fontSize: 12, color: 'var(--text2)' }}>{row.l}</div>
+                <div style={{ fontSize: 10, color: 'var(--text3)', fontFamily: mono, marginTop: 2 }}>{row.note}</div>
+              </div>
+              <span style={{ fontFamily: mono, fontSize: 15, fontWeight: 600, color: row.c }}>{row.v}</span>
+            </div>
+          ))}
+          <div style={{ marginTop: 10, padding: '8px 10px', background: 'rgba(255,77,77,.06)', borderRadius: 4, fontFamily: mono, fontSize: 11, color: 'var(--red)' }}>
+            R:R = 1 : {rrRatio} · Max risk: {fmt(stopDist)} per share
+          </div>
+        </div>
+      </div>
+
+      {/* Signal reasoning */}
+      <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 8, padding: '14px 16px', marginBottom: 16 }}>
+        <div style={{ fontSize: 10, fontFamily: mono, color: 'var(--accent)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 12 }}>Signal Factors ({bullCount} Bull · {bearCount} Bear)</div>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '2px 20px' }}>
+          {reasons.map((r, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
+              <span style={{ fontSize: 13, color: r.ok ? 'var(--green)' : 'var(--red)', flexShrink: 0, marginTop: 1 }}>{r.ok ? '✓' : '✗'}</span>
+              <span style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.5 }}>{r.text}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Disclaimer */}
+      <div style={{ padding: '10px 14px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, fontSize: 11, color: 'var(--text3)', fontFamily: mono, lineHeight: 1.6 }}>
+        ⚠ Trade levels are ATR-based estimates, not financial advice. Always verify with your own analysis. Stop levels should be adjusted to your account risk limits.
+      </div>
+    </div>
+  )
+}
+
 export default function Dashboard() {
   const params = useSearchParams()
   const router = useRouter()
@@ -251,6 +468,7 @@ export default function Dashboard() {
   const [showAdd, setShowAdd] = useState(false)
   const [wlOpen, setWlOpen] = useState(true)
   const [showSignalModal, setShowSignalModal] = useState(false)
+  const askAIRef = useRef<((q: string) => void) | null>(null)
 
   useEffect(() => {
     try {
@@ -858,6 +1076,9 @@ export default function Dashboard() {
                   </div>
                 )}
 
+                {/* TRADE SETUP */}
+                {tab === 'Trade Setup' && <TradeSetup data={data} qs={qs} isMobile={isMobile} onAskAI={q => askAIRef.current?.(q)} />}
+
                 {/* AI REPORT */}
                 {tab === 'AI Report' && (
                   <div style={{ maxWidth: 680 }}>
@@ -915,7 +1136,7 @@ export default function Dashboard() {
         </main>
       </div>
     </div>
-    {data && <ChatBot stockContext={data} />}
+    {data && <ChatBot stockContext={data} onAskAI={fn => { askAIRef.current = fn }} />}
 
     {/* Composite Signal Modal */}
     {showSignalModal && qs && (
