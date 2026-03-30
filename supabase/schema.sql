@@ -13,6 +13,15 @@ alter table portfolio enable row level security;
 create policy "Users manage own portfolio" on portfolio
   for all using (auth.uid() = user_id);
 
+-- User profiles (SnapTrade integration)
+create table if not exists profiles (
+  user_id                 uuid primary key references auth.users,
+  snaptrade_user_secret   text
+);
+alter table profiles enable row level security;
+create policy "Users manage own profile" on profiles
+  for all using (auth.uid() = user_id);
+
 -- Price alerts
 create table if not exists alerts (
   id         uuid    default gen_random_uuid() primary key,

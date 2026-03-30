@@ -240,6 +240,8 @@ function TradeSetup({ data, qs, isMobile, onAskAI }: { data: any; qs: any; isMob
   const [horizon, setHorizon] = useState<'swing' | 'position' | 'scalp'>('swing')
   const [riskTolerance, setRiskTolerance] = useState<'conservative' | 'moderate' | 'aggressive'>('moderate')
   const [positionSize, setPositionSize] = useState('')
+  const [manualEntry, setManualEntry] = useState('')
+  const [manualStop, setManualStop] = useState('')
 
   const price = data.price ?? 0
   const atr = qs?.atr14 ?? price * 0.02
@@ -262,7 +264,7 @@ function TradeSetup({ data, qs, isMobile, onAskAI }: { data: any; qs: any; isMob
 
   const dirColor = direction === 'LONG' ? 'var(--green)' : direction === 'SHORT' ? 'var(--red)' : 'var(--amber)'
 
-  // Trade levels
+  // ATR-based trade levels
   const stopDist = atr * riskMult
   const tpDist   = stopDist * tpMult
   const rrRatio  = tpMult
@@ -277,10 +279,23 @@ function TradeSetup({ data, qs, isMobile, onAskAI }: { data: any; qs: any; isMob
   const shortTP1   = +(price - stopDist * 1.5).toFixed(2)
   const shortTP2   = +(price - tpDist).toFixed(2)
 
-  const entry = direction === 'SHORT' ? shortEntry : longEntry
-  const stop  = direction === 'SHORT' ? shortStop  : longStop
-  const tp1   = direction === 'SHORT' ? shortTP1   : longTP1
-  const tp2   = direction === 'SHORT' ? shortTP2   : longTP2
+  // Manual override: use user-supplied entry/stop when both are valid numbers
+  const mEntry = parseFloat(manualEntry)
+  const mStop  = parseFloat(manualStop)
+  const useManual = manualEntry !== '' && manualStop !== '' && mEntry > 0 && mStop > 0 && mEntry !== mStop
+
+  const manualDist = useManual ? Math.abs(mEntry - mStop) : stopDist
+  const manualIsLong = useManual ? mEntry > mStop : direction !== 'SHORT'
+
+  const entry = useManual ? mEntry : (direction === 'SHORT' ? shortEntry : longEntry)
+  const stop  = useManual ? mStop  : (direction === 'SHORT' ? shortStop  : longStop)
+  const tp1   = useManual
+    ? +(manualIsLong ? mEntry + manualDist * 1.5 : mEntry - manualDist * 1.5).toFixed(2)
+    : (direction === 'SHORT' ? shortTP1 : longTP1)
+  const tp2   = useManual
+    ? +(manualIsLong ? mEntry + manualDist * tpMult : mEntry - manualDist * tpMult).toFixed(2)
+    : (direction === 'SHORT' ? shortTP2 : longTP2)
+  const effectiveRR = useManual ? tpMult : rrRatio
 
   const riskPerShare = Math.abs(entry - stop)
   const posShares = positionSize && parseFloat(positionSize) > 0
@@ -306,7 +321,14 @@ function TradeSetup({ data, qs, isMobile, onAskAI }: { data: any; qs: any; isMob
   const bearCount = reasons.filter(r => !r.ok).length
 
   function buildAIQuestion() {
-    return `Based on the current data for ${data.ticker} (price $${price.toFixed(2)}, trend: ${trend ?? 'N/A'}, RSI: ${qs?.rsi?.toFixed(1) ?? 'N/A'}, 3M momentum: ${qs?.momentum?.m3 != null ? (qs.momentum.m3 >= 0 ? '+' : '') + qs.momentum.m3.toFixed(1) + '%' : 'N/A'}, P/E: ${data.pe?.toFixed(1) ?? 'N/A'}), should I go ${direction} on this stock? My time horizon is ${horizon} and risk tolerance is ${riskTolerance}. Please give me a detailed trade setup with entry, stop loss, and take profit levels, and explain the key risks.`
+    const entryStr = `$${entry.toFixed(2)}`
+    const stopStr  = `$${stop.toFixed(2)}`
+    const tp1Str   = `$${tp1.toFixed(2)}`
+    const tp2Str   = `$${tp2.toFixed(2)}`
+    const levelNote = useManual
+      ? `My manually set entry is ${entryStr} with stop at ${stopStr} (implied direction: ${manualIsLong ? 'LONG' : 'SHORT'}).`
+      : `Signal-based trade levels: entry ${entryStr}, stop ${stopStr}, TP1 ${tp1Str}, TP2 ${tp2Str}.`
+    return `Based on the current data for ${data.ticker} (price $${price.toFixed(2)}, trend: ${trend ?? 'N/A'}, RSI: ${qs?.rsi?.toFixed(1) ?? 'N/A'}, 3M momentum: ${qs?.momentum?.m3 != null ? (qs.momentum.m3 >= 0 ? '+' : '') + qs.momentum.m3.toFixed(1) + '%' : 'N/A'}, P/E: ${data.pe?.toFixed(1) ?? 'N/A'}), should I go ${useManual ? (manualIsLong ? 'LONG' : 'SHORT') : direction} on this stock? My time horizon is ${horizon} and risk tolerance is ${riskTolerance}. ${levelNote} Please give me a detailed trade setup analysis and explain the key risks.`
   }
 
   const fmt = (n: number) => '$' + n.toFixed(2)
@@ -344,7 +366,7 @@ function TradeSetup({ data, qs, isMobile, onAskAI }: { data: any; qs: any; isMob
       </div>
 
       {/* User inputs */}
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: 12, marginBottom: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr 1fr', gap: 12, marginBottom: 20 }}>
         <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, padding: '12px 14px' }}>
           <div style={{ fontSize: 10, fontFamily: mono, color: 'var(--text3)', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>Time Horizon</div>
           {(['scalp', 'swing', 'position'] as const).map(h => (
@@ -377,59 +399,121 @@ function TradeSetup({ data, qs, isMobile, onAskAI }: { data: any; qs: any; isMob
           )}
           <div style={{ marginTop: 6, fontSize: 11, color: 'var(--text3)' }}>Risk per share: {fmt(riskPerShare)}</div>
         </div>
+        <div style={{ background: 'var(--bg2)', border: `1px solid ${useManual ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 6, padding: '12px 14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <div style={{ fontSize: 10, fontFamily: mono, color: useManual ? 'var(--accent)' : 'var(--text3)', letterSpacing: 1, textTransform: 'uppercase' }}>Manual Override</div>
+            {useManual && (
+              <button onClick={() => { setManualEntry(''); setManualStop('') }} style={{ fontSize: 10, fontFamily: mono, color: 'var(--text3)', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}>✕ clear</button>
+            )}
+          </div>
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 4 }}>Entry Price</div>
+            <input
+              type="number"
+              value={manualEntry}
+              onChange={e => setManualEntry(e.target.value)}
+              placeholder={`e.g. ${price.toFixed(2)}`}
+              style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 4, padding: '7px 10px', fontFamily: mono, fontSize: 13, color: 'var(--text)', outline: 'none', boxSizing: 'border-box' }}
+            />
+          </div>
+          <div>
+            <div style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 4 }}>Stop Loss</div>
+            <input
+              type="number"
+              value={manualStop}
+              onChange={e => setManualStop(e.target.value)}
+              placeholder="e.g. stop price"
+              style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 4, padding: '7px 10px', fontFamily: mono, fontSize: 13, color: 'var(--text)', outline: 'none', boxSizing: 'border-box' }}
+            />
+          </div>
+          {useManual && (
+            <div style={{ marginTop: 8, fontSize: 11, color: 'var(--accent)', fontFamily: mono }}>
+              {manualIsLong ? '▲ LONG' : '▼ SHORT'} · risk/share: {fmt(riskPerShare)}
+            </div>
+          )}
+          {!useManual && (
+            <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text3)', lineHeight: 1.5 }}>Enter both to override ATR levels</div>
+          )}
+        </div>
       </div>
 
       {/* Trade levels */}
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16, marginBottom: 20 }}>
         {/* Long setup */}
-        <div style={{ background: 'var(--bg2)', border: `1px solid ${direction === 'LONG' ? 'var(--green)' : 'var(--border)'}`, borderRadius: 8, padding: '14px 16px', opacity: direction === 'SHORT' ? 0.5 : 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-            <span style={{ fontSize: 11, fontFamily: mono, color: 'var(--green)', fontWeight: 700, letterSpacing: 1 }}>▲ LONG SETUP</span>
-            {direction === 'LONG' && <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 3, background: 'rgba(0,217,126,.15)', color: 'var(--green)', fontFamily: mono }}>RECOMMENDED</span>}
-          </div>
-          {[
-            { l: 'Entry',          v: fmt(longEntry),  c: 'var(--text)',  note: 'Current market price' },
-            { l: 'Stop Loss',      v: fmt(longStop),   c: 'var(--red)',   note: `−${pct(longEntry, longStop)} (${atrPct.toFixed(1)}% ATR × ${riskMult})` },
-            { l: 'Take Profit 1',  v: fmt(longTP1),    c: 'var(--green)', note: `+${pct(longTP1, longEntry)} (1.5R)` },
-            { l: 'Take Profit 2',  v: fmt(longTP2),    c: 'var(--green)', note: `+${pct(longTP2, longEntry)} (${rrRatio}R)` },
-          ].map(row => (
-            <div key={row.l} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
-              <div>
-                <div style={{ fontSize: 12, color: 'var(--text2)' }}>{row.l}</div>
-                <div style={{ fontSize: 10, color: 'var(--text3)', fontFamily: mono, marginTop: 2 }}>{row.note}</div>
+        {(() => {
+          const isActive = useManual ? manualIsLong : direction === 'LONG'
+          const isInactive = useManual ? !manualIsLong : direction === 'SHORT'
+          const lEntry = useManual && manualIsLong ? entry : longEntry
+          const lStop  = useManual && manualIsLong ? stop  : longStop
+          const lTP1   = useManual && manualIsLong ? tp1   : longTP1
+          const lTP2   = useManual && manualIsLong ? tp2   : longTP2
+          const lDist  = useManual && manualIsLong ? manualDist : stopDist
+          const entryNote = useManual && manualIsLong ? 'Manual entry price' : 'Current market price'
+          const stopNote  = useManual && manualIsLong ? `−${pct(lEntry, lStop)} (manual stop)` : `−${pct(lEntry, lStop)} (${atrPct.toFixed(1)}% ATR × ${riskMult})`
+          return (
+            <div style={{ background: 'var(--bg2)', border: `1px solid ${isActive ? 'var(--green)' : 'var(--border)'}`, borderRadius: 8, padding: '14px 16px', opacity: isInactive ? 0.5 : 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                <span style={{ fontSize: 11, fontFamily: mono, color: 'var(--green)', fontWeight: 700, letterSpacing: 1 }}>▲ LONG SETUP</span>
+                {isActive && <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 3, background: 'rgba(0,217,126,.15)', color: 'var(--green)', fontFamily: mono }}>{useManual ? 'MANUAL' : 'RECOMMENDED'}</span>}
               </div>
-              <span style={{ fontFamily: mono, fontSize: 15, fontWeight: 600, color: row.c }}>{row.v}</span>
+              {[
+                { l: 'Entry',         v: fmt(lEntry), c: 'var(--text)',  note: entryNote },
+                { l: 'Stop Loss',     v: fmt(lStop),  c: 'var(--red)',   note: stopNote },
+                { l: 'Take Profit 1', v: fmt(lTP1),   c: 'var(--green)', note: `+${pct(lTP1, lEntry)} (1.5R)` },
+                { l: 'Take Profit 2', v: fmt(lTP2),   c: 'var(--green)', note: `+${pct(lTP2, lEntry)} (${effectiveRR}R)` },
+              ].map(row => (
+                <div key={row.l} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
+                  <div>
+                    <div style={{ fontSize: 12, color: 'var(--text2)' }}>{row.l}</div>
+                    <div style={{ fontSize: 10, color: 'var(--text3)', fontFamily: mono, marginTop: 2 }}>{row.note}</div>
+                  </div>
+                  <span style={{ fontFamily: mono, fontSize: 15, fontWeight: 600, color: row.c }}>{row.v}</span>
+                </div>
+              ))}
+              <div style={{ marginTop: 10, padding: '8px 10px', background: 'rgba(0,217,126,.06)', borderRadius: 4, fontFamily: mono, fontSize: 11, color: 'var(--green)' }}>
+                R:R = 1 : {effectiveRR} · Max risk: {fmt(lDist)} per share
+              </div>
             </div>
-          ))}
-          <div style={{ marginTop: 10, padding: '8px 10px', background: 'rgba(0,217,126,.06)', borderRadius: 4, fontFamily: mono, fontSize: 11, color: 'var(--green)' }}>
-            R:R = 1 : {rrRatio} · Max risk: {fmt(stopDist)} per share
-          </div>
-        </div>
+          )
+        })()}
 
         {/* Short setup */}
-        <div style={{ background: 'var(--bg2)', border: `1px solid ${direction === 'SHORT' ? 'var(--red)' : 'var(--border)'}`, borderRadius: 8, padding: '14px 16px', opacity: direction === 'LONG' ? 0.5 : 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-            <span style={{ fontSize: 11, fontFamily: mono, color: 'var(--red)', fontWeight: 700, letterSpacing: 1 }}>▼ SHORT SETUP</span>
-            {direction === 'SHORT' && <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 3, background: 'rgba(255,77,77,.15)', color: 'var(--red)', fontFamily: mono }}>RECOMMENDED</span>}
-          </div>
-          {[
-            { l: 'Entry',          v: fmt(shortEntry), c: 'var(--text)',  note: 'Current market price' },
-            { l: 'Stop Loss',      v: fmt(shortStop),  c: 'var(--red)',   note: `+${pct(shortStop, shortEntry)} (${atrPct.toFixed(1)}% ATR × ${riskMult})` },
-            { l: 'Take Profit 1',  v: fmt(shortTP1),   c: 'var(--green)', note: `−${pct(shortEntry, shortTP1)} (1.5R)` },
-            { l: 'Take Profit 2',  v: fmt(shortTP2),   c: 'var(--green)', note: `−${pct(shortEntry, shortTP2)} (${rrRatio}R)` },
-          ].map(row => (
-            <div key={row.l} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
-              <div>
-                <div style={{ fontSize: 12, color: 'var(--text2)' }}>{row.l}</div>
-                <div style={{ fontSize: 10, color: 'var(--text3)', fontFamily: mono, marginTop: 2 }}>{row.note}</div>
+        {(() => {
+          const isActive = useManual ? !manualIsLong : direction === 'SHORT'
+          const isInactive = useManual ? manualIsLong : direction === 'LONG'
+          const sEntry = useManual && !manualIsLong ? entry : shortEntry
+          const sStop  = useManual && !manualIsLong ? stop  : shortStop
+          const sTP1   = useManual && !manualIsLong ? tp1   : shortTP1
+          const sTP2   = useManual && !manualIsLong ? tp2   : shortTP2
+          const sDist  = useManual && !manualIsLong ? manualDist : stopDist
+          const entryNote = useManual && !manualIsLong ? 'Manual entry price' : 'Current market price'
+          const stopNote  = useManual && !manualIsLong ? `+${pct(sStop, sEntry)} (manual stop)` : `+${pct(sStop, sEntry)} (${atrPct.toFixed(1)}% ATR × ${riskMult})`
+          return (
+            <div style={{ background: 'var(--bg2)', border: `1px solid ${isActive ? 'var(--red)' : 'var(--border)'}`, borderRadius: 8, padding: '14px 16px', opacity: isInactive ? 0.5 : 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                <span style={{ fontSize: 11, fontFamily: mono, color: 'var(--red)', fontWeight: 700, letterSpacing: 1 }}>▼ SHORT SETUP</span>
+                {isActive && <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 3, background: 'rgba(255,77,77,.15)', color: 'var(--red)', fontFamily: mono }}>{useManual ? 'MANUAL' : 'RECOMMENDED'}</span>}
               </div>
-              <span style={{ fontFamily: mono, fontSize: 15, fontWeight: 600, color: row.c }}>{row.v}</span>
+              {[
+                { l: 'Entry',         v: fmt(sEntry), c: 'var(--text)',  note: entryNote },
+                { l: 'Stop Loss',     v: fmt(sStop),  c: 'var(--red)',   note: stopNote },
+                { l: 'Take Profit 1', v: fmt(sTP1),   c: 'var(--green)', note: `−${pct(sEntry, sTP1)} (1.5R)` },
+                { l: 'Take Profit 2', v: fmt(sTP2),   c: 'var(--green)', note: `−${pct(sEntry, sTP2)} (${effectiveRR}R)` },
+              ].map(row => (
+                <div key={row.l} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
+                  <div>
+                    <div style={{ fontSize: 12, color: 'var(--text2)' }}>{row.l}</div>
+                    <div style={{ fontSize: 10, color: 'var(--text3)', fontFamily: mono, marginTop: 2 }}>{row.note}</div>
+                  </div>
+                  <span style={{ fontFamily: mono, fontSize: 15, fontWeight: 600, color: row.c }}>{row.v}</span>
+                </div>
+              ))}
+              <div style={{ marginTop: 10, padding: '8px 10px', background: 'rgba(255,77,77,.06)', borderRadius: 4, fontFamily: mono, fontSize: 11, color: 'var(--red)' }}>
+                R:R = 1 : {effectiveRR} · Max risk: {fmt(sDist)} per share
+              </div>
             </div>
-          ))}
-          <div style={{ marginTop: 10, padding: '8px 10px', background: 'rgba(255,77,77,.06)', borderRadius: 4, fontFamily: mono, fontSize: 11, color: 'var(--red)' }}>
-            R:R = 1 : {rrRatio} · Max risk: {fmt(stopDist)} per share
-          </div>
-        </div>
+          )
+        })()}
       </div>
 
       {/* Signal reasoning */}
@@ -721,6 +805,31 @@ export default function Dashboard() {
                           </div>
                         </div>
                       )}
+
+                      {qs && (() => {
+                        const score = +(qs.scores.trend * 0.4 + qs.scores.momentum * 0.4 + qs.scores.meanReversion * 0.1 + qs.scores.risk * 0.1).toFixed(1)
+                        const dir = score >= 58 ? 'LONG' : score <= 42 ? 'SHORT' : 'NEUTRAL'
+                        const dc = dir === 'LONG' ? 'var(--green)' : dir === 'SHORT' ? 'var(--red)' : 'var(--amber)'
+                        return (
+                          <div style={{ background: 'var(--bg2)', border: `1px solid ${dc}44`, borderRadius: 6, padding: 14 }}>
+                            <div style={{ fontFamily: mono, fontSize: 10, color: 'var(--text3)', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>Trade Bias</div>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                              <span style={{ fontSize: 20, fontWeight: 800, color: dc, letterSpacing: 0.5 }}>
+                                {dir === 'LONG' ? '▲ LONG' : dir === 'SHORT' ? '▼ SHORT' : '◆ NEUTRAL'}
+                              </span>
+                              <span style={{ fontFamily: mono, fontSize: 12, color: 'var(--text3)', background: 'var(--bg3)', padding: '3px 8px', borderRadius: 4 }}>
+                                {score}/100
+                              </span>
+                            </div>
+                            <button
+                              onClick={() => setTab('Trade Setup')}
+                              style={{ width: '100%', padding: '6px 0', background: 'transparent', border: `1px solid ${dc}55`, borderRadius: 4, color: dc, fontFamily: mono, fontSize: 11, cursor: 'pointer', letterSpacing: 1 }}
+                            >
+                              → Full Trade Setup
+                            </button>
+                          </div>
+                        )
+                      })()}
 
                       {data.recommendations && (
                         <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, padding: 14 }}>
