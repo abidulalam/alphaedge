@@ -25,8 +25,9 @@ export async function snapLoginUrl(
   broker?: string,
 ): Promise<string> {
   const snap = client()
-  const body: Record<string, unknown> = { broker }
-  const res = await snap.authentication.loginSnapTradeUser({ userId, userSecret }, body)
+  const params: Record<string, unknown> = { userId, userSecret }
+  if (broker) params.broker = broker
+  const res = await snap.authentication.loginSnapTradeUser(params as any)
   const redirectURI = (res.data as any)?.redirectURI
   if (!redirectURI) throw new Error('SnapTrade login failed — no redirectURI returned')
   return redirectURI as string
