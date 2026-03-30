@@ -5,13 +5,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-npm run dev      # Start dev server (localhost:3000)
-npm run build    # Production build — runs TypeScript type-check + lint (run before deploying)
-npm run lint     # ESLint only
-npm run start    # Start production server
+npm run dev              # Start dev server (localhost:3000)
+npm run build            # Production build — runs TypeScript type-check + lint (run before deploying)
+npm run lint             # ESLint only
+npm run start            # Start production server
+npm test                 # All unit + integration tests (92 tests)
+npm run test:unit        # Unit tests only (src/__tests__/unit/)
+npm run test:integration # Integration tests only (src/__tests__/integration/)
+npm run test:coverage    # Tests + HTML coverage report (coverage/)
+npm run test:e2e         # Playwright E2E tests (requires dev server running)
+npm run test:e2e:ui      # Playwright with interactive UI
 ```
-
-No test suite is configured.
 
 ## Environment Variables
 
@@ -73,3 +77,31 @@ All market data is fetched server-side through Next.js API routes — never dire
 
 ### Database
 `supabase/schema.sql` contains the full schema (`alerts`, `portfolio` tables with RLS policies). This file must be manually run in the **Supabase Dashboard → SQL Editor** — it is not auto-applied.
+
+## Testing
+
+### Structure
+```
+src/__tests__/
+  fixtures/candles.ts       # Synthetic OHLCV data generators (makeCandles, bullCandles, bearCandles, flatCandles)
+  setup.ts                  # @testing-library/jest-dom setup
+  unit/
+    finnhub.test.ts          # computeQuantSignals, computeMoatScore, computeGrowthScore
+    useIsMobile.test.ts      # Hook resize/cleanup behaviour
+    ScoreBar.test.tsx         # Component label/color/width logic
+  integration/
+    api-chat.test.ts          # POST /api/chat with mocked Groq API
+    api-quote.test.ts         # GET /api/quote with mocked Finnhub + Yahoo fallback
+    api-search.test.ts        # GET /api/search filtering and error handling
+e2e/
+  home.spec.ts               # Landing page, CTA, ticker tape
+  auth.spec.ts               # Auth guard redirects, sign-in form
+  markets.spec.ts            # Markets page public access
+  calendar.spec.ts           # Default Earnings tab, tab switching
+  mobile.spec.ts             # No horizontal scroll, touch targets (Pixel 5 viewport)
+```
+
+### Key patterns
+- Integration tests mock `global.fetch` and `global.setTimeout` — import the route handler after setting up mocks
+- `bullCandles(252)` / `bearCandles(252)` produce deterministic trend data for signal threshold tests
+- E2E tests run against `localhost:3000` by default; set `PLAYWRIGHT_BASE_URL` to override for staging
