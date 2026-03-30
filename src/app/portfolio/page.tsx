@@ -173,7 +173,7 @@ export default function Portfolio() {
 
   // Badge color per broker
   const brokerColor = (broker: string) => {
-    const h = [...broker].reduce((acc, c) => acc + c.charCodeAt(0), 0)
+    const h = broker.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)
     const colors = ['#FF5500', '#0088FF', '#00CC66', '#FFAA00', '#AA44FF', '#FF3388']
     return colors[h % colors.length]
   }
