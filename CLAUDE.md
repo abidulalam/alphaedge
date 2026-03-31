@@ -24,6 +24,8 @@ FINNHUB_API_KEY               # Required — free key from finnhub.io
 NEXT_PUBLIC_SUPABASE_URL      # Required — Supabase project URL
 NEXT_PUBLIC_SUPABASE_ANON_KEY # Required — Supabase anon key
 GROQ_API_KEY                  # Required for AI chatbot — free key from groq.com (confirmed added to Vercel)
+SNAPTRADE_CLIENT_ID           # Required for broker integration — from SnapTrade developer dashboard
+SNAPTRADE_CONSUMER_KEY        # Required for broker integration — from SnapTrade developer dashboard
 FMP_API_KEY                   # Optional — financialmodelingprep.com for EV/EBITDA metric
 ```
 
@@ -39,9 +41,10 @@ All env vars must also be added in **Vercel Dashboard → Settings → Environme
 
 ### Stack
 - **Next.js 14 App Router**, TypeScript, all pages in `src/app/`
-- **Supabase** for auth (OAuth) and database (`alerts`, `portfolio` tables with RLS)
+- **Supabase** for auth (OAuth) and database (`alerts`, `portfolio`, `profiles` tables with RLS)
 - **Finnhub** as primary market data source; Yahoo Finance + Stooq as candle fallbacks
 - **Groq API** (OpenAI-compatible) for AI chatbot — `llama-3.1-8b-instant` model
+- **SnapTrade** (`snaptrade-typescript-sdk`) for external broker integration (22+ brokerages via OAuth)
 
 ### Data Flow
 All market data is fetched server-side through Next.js API routes — never directly from client to external APIs:
@@ -55,6 +58,10 @@ All market data is fetched server-side through Next.js API routes — never dire
 | `/api/candles` | Raw OHLCV data |
 | `/api/calendar` | Earnings calendar |
 | `/api/fed-rates` | Federal Reserve rate data |
+| `/api/snaptrade/register` | POST — registers Supabase user with SnapTrade, stores `userSecret` in `profiles` table (idempotent) |
+| `/api/snaptrade/connect` | POST — generates SnapTrade OAuth portal URL; body: `{ broker?: string }` |
+| `/api/snaptrade/holdings` | GET — fetches all holdings from connected broker accounts |
+| `/api/snaptrade/disconnect` | DELETE — removes a connected broker account; body: `{ accountId }` |
 
 ### Auth
 - Supabase OAuth → `/auth/callback` → cookie-based session
@@ -75,8 +82,18 @@ All market data is fetched server-side through Next.js API routes — never dire
 - **Watchlist** is persisted to `localStorage` under the key `alphaedge_watchlist`
 - Theme: dark navy, orange accent `#FF5500`, CSS variables in `globals.css`, IBM Plex Mono + Space Grotesk fonts
 
+### SnapTrade Broker Integration
+`src/lib/snaptrade.ts` wraps the `snaptrade-typescript-sdk`. Key notes:
+- All SDK calls use a single flat params object — `loginSnapTradeUser({ userId, userSecret, broker? })` not two separate args
+- SnapTrade's `pos.symbol` is a nested object `{id, symbol, ticker, raw_symbol, ...}` — extract ticker as `sym?.symbol?.ticker ?? sym?.raw_symbol`
+- The OAuth flow: register (idempotent) → get portal URL → open in `window.open` popup → poll `popup.closed` → reload holdings
+- `userSecret` is stored per-user in the `profiles` table and required for every SnapTrade API call
+- Holdings are fetched on-demand from SnapTrade (not cached in DB) — SnapTrade is the source of truth for external positions
+
 ### Database
-`supabase/schema.sql` contains the full schema (`alerts`, `portfolio` tables with RLS policies). This file must be manually run in the **Supabase Dashboard → SQL Editor** — it is not auto-applied.
+`supabase/schema.sql` contains the full schema (`alerts`, `portfolio`, `profiles` tables with RLS policies). This file must be manually run in the **Supabase Dashboard → SQL Editor** — it is not auto-applied.
+
+The `profiles` table stores the SnapTrade `userSecret` per user — required before any broker connection can be made.
 
 ## Testing
 
