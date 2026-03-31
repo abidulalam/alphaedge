@@ -96,8 +96,11 @@ export async function snapFetchHoldings(
     const accountName = account.account?.name ?? broker
 
     for (const pos of account.positions ?? []) {
-      const ticker = pos.symbol?.symbol ?? pos.symbol?.ticker ?? null
-      if (!ticker) continue
+      const sym = pos.symbol
+      const ticker = typeof sym === 'string'
+        ? sym
+        : (sym?.symbol?.ticker ?? sym?.symbol?.symbol ?? sym?.ticker ?? sym?.raw_symbol ?? null)
+      if (!ticker || typeof ticker !== 'string') continue
       const units = Number(pos.units ?? 0)
       const price = pos.price != null ? Number(pos.price) : null
       const avgCost = pos.average_purchase_price != null ? Number(pos.average_purchase_price) : null
