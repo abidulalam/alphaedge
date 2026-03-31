@@ -17,11 +17,19 @@ const NAV_LINKS = [
   ['Alerts', '/alerts'],
 ]
 
+const RESEARCH_LINKS = [
+  ['Earnings', '/research/earnings'],
+  ['IPOs', '/research/ipos'],
+  ['EDGAR', '/research/edgar'],
+  ['Holdings', '/research/holdings'],
+]
+
 export default function Navbar() {
-  const [user, setUser]       = useState<User | null>(null)
-  const [modal, setModal]     = useState<'signin' | 'signup' | null>(null)
-  const [time, setTime]       = useState('')
+  const [user, setUser]         = useState<User | null>(null)
+  const [modal, setModal]       = useState<'signin' | 'signup' | null>(null)
+  const [time, setTime]         = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
+  const [researchOpen, setResearchOpen] = useState(false)
   const isMobile = useIsMobile()
 
   useEffect(() => {
@@ -69,6 +77,31 @@ export default function Navbar() {
               onMouseLeave={e => (e.currentTarget.style.color = 'var(--text2)')}
             >{label}</Link>
           ))}
+          {/* Research dropdown */}
+          <div style={{ position: 'relative' }}
+            onMouseEnter={() => setResearchOpen(true)}
+            onMouseLeave={() => setResearchOpen(false)}
+          >
+            <span style={{ color: 'var(--text2)', cursor: 'pointer', transition: 'color 0.1s', userSelect: 'none' }}
+              onMouseEnter={e => (e.currentTarget.style.color = 'var(--text)')}
+              onMouseLeave={e => (e.currentTarget.style.color = 'var(--text2)')}
+            >Research ▾</span>
+            {researchOpen && (
+              <div style={{
+                position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)',
+                marginTop: 8, background: 'var(--bg2)', border: '1px solid var(--border)',
+                borderRadius: 4, padding: '4px 0', minWidth: 140, zIndex: 200,
+              }}>
+                {RESEARCH_LINKS.map(([label, href]) => (
+                  <Link key={label} href={href}
+                    style={{ display: 'block', padding: '9px 16px', fontSize: 11, color: 'var(--text2)', letterSpacing: 1, textTransform: 'uppercase', whiteSpace: 'nowrap' }}
+                    onMouseEnter={e => (e.currentTarget.style.color = 'var(--text)')}
+                    onMouseLeave={e => (e.currentTarget.style.color = 'var(--text2)')}
+                  >{label}</Link>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* SEARCH */}
@@ -116,6 +149,14 @@ export default function Navbar() {
               key={label} href={href}
               onClick={() => setMenuOpen(false)}
               style={{ padding: '14px 20px', fontSize: 13, color: 'var(--text2)', borderBottom: '1px solid var(--border)', letterSpacing: 1, textTransform: 'uppercase' }}
+            >{label}</Link>
+          ))}
+          <div style={{ padding: '10px 20px 4px', fontSize: 10, color: 'var(--text3)', letterSpacing: 2, textTransform: 'uppercase', fontFamily: 'IBM Plex Mono, monospace' }}>Research</div>
+          {RESEARCH_LINKS.map(([label, href]) => (
+            <Link
+              key={label} href={href}
+              onClick={() => setMenuOpen(false)}
+              style={{ padding: '12px 28px', fontSize: 12, color: 'var(--text2)', borderBottom: '1px solid var(--border)', letterSpacing: 1, textTransform: 'uppercase' }}
             >{label}</Link>
           ))}
         </div>

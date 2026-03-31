@@ -596,12 +596,21 @@ export default function Dashboard() {
     setWatchData(m)
   }, [watchlist])
 
+  const [analystData, setAnalystData] = useState<any>(null)
+
   useEffect(() => { loadStock(ticker) }, [ticker, loadStock])
   useEffect(() => { loadWatch() }, [loadWatch])
   useEffect(() => {
     const id = setInterval(() => { loadStock(ticker, true); loadWatch() }, 30000)
     return () => clearInterval(id)
   }, [ticker, loadStock, loadWatch])
+  useEffect(() => {
+    setAnalystData(null)
+    fetch('/api/analyst?ticker=' + ticker)
+      .then(r => r.json())
+      .then(d => { if (!d.error) setAnalystData(d) })
+      .catch(() => {})
+  }, [ticker])
 
   function selectTicker(sym: string) {
     setTicker(sym)
@@ -837,8 +846,17 @@ export default function Dashboard() {
                           {(() => {
                             const r = data.recommendations
                             const total = (r.strongBuy + r.buy + r.hold + r.sell + r.strongSell) || 1
+                            const ptc = analystData?.priceTargetConsensus
+                            const ratings: any[] = analystData?.recentRatings ?? []
+                            const gradeColor = (g: string) => {
+                              const gl = (g || '').toLowerCase()
+                              if (gl.includes('strong buy') || gl.includes('outperform') || gl.includes('overweight') || gl.includes('buy')) return '#00d97e'
+                              if (gl.includes('strong sell') || gl.includes('underperform') || gl.includes('underweight') || gl.includes('sell')) return '#ff4d4d'
+                              return '#f5a623'
+                            }
                             return (
                               <div>
+                                {/* Aggregate counts */}
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 4, marginBottom: 8 }}>
                                   {[
                                     { l: 'Str Buy', v: r.strongBuy, c: '#00d97e' },
@@ -853,7 +871,7 @@ export default function Dashboard() {
                                     </div>
                                   ))}
                                 </div>
-                                <div style={{ display: 'flex', height: 6, borderRadius: 3, overflow: 'hidden', gap: 1 }}>
+                                <div style={{ display: 'flex', height: 6, borderRadius: 3, overflow: 'hidden', gap: 1, marginBottom: 14 }}>
                                   {[
                                     { v: r.strongBuy, c: '#00d97e' },
                                     { v: r.buy, c: '#4ade80' },
@@ -864,6 +882,79 @@ export default function Dashboard() {
                                     <div key={i} style={{ flex: x.v / total, background: x.c }} />
                                   ))}
                                 </div>
+
+                                {/* Price target range bar */}
+                                {ptc && ptc.targetLow != null && ptc.targetHigh != null && ptc.targetHigh > ptc.targetLow && (
+                                  <div style={{ marginBottom: 14 }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--text3)', fontFamily: mono, marginBottom: 4 }}>
+                                      <span>Price Targets</span>
+                                      {ptc.lastUpdated && <span>{ptc.lastUpdated.slice(0, 10)}</span>}
+                                    </div>
+                                    <div style={{ position: 'relative', height: 28, marginBottom: 4 }}>
+                                      {/* Track */}
+                                      <div style={{ position: 'absolute', top: 12, left: 0, right: 0, height: 4, background: 'var(--border2)', borderRadius: 2 }} />
+                                      {(() => {
+                                        const lo = ptc.targetLow
+                                        const hi = ptc.targetHigh
+                                        const range = hi - lo || 1
+                                        const pct = (v: number) => Math.min(100, Math.max(0, ((v - lo) / range) * 100))
+                                        const consPct = ptc.targetConsensus != null ? pct(ptc.targetConsensus) : null
+                                        const pricePct = data.price != null ? pct(data.price) : null
+                                        return (
+                                          <>
+                                            {/* Consensus marker */}
+                                            {consPct != null && (
+                                              <div style={{ position: 'absolute', top: 4, left: consPct + '%', transform: 'translateX(-50%)' }}>
+                                                <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#0088ff', border: '2px solid var(--bg)', marginLeft: -4 }} />
+                                                <div style={{ fontSize: 9, color: '#0088ff', fontFamily: mono, whiteSpace: 'nowrap', marginTop: 2, marginLeft: -12 }}>${ptc.targetConsensus?.toFixed(0)}</div>
+                                              </div>
+                                            )}
+                                            {/* Current price marker */}
+                                            {pricePct != null && (
+                                              <div style={{ position: 'absolute', top: 4, left: pricePct + '%', transform: 'translateX(-50%)' }}>
+                                                <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg)', marginLeft: -4 }} />
+                                              </div>
+                                            )}
+                                          </>
+                                        )
+                                      })()}
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, fontFamily: mono, color: 'var(--text2)' }}>
+                                      <span style={{ color: '#ff4d4d' }}>${ptc.targetLow?.toFixed(0)} Low</span>
+                                      {ptc.targetMedian != null && <span style={{ color: 'var(--text3)' }}>${ptc.targetMedian?.toFixed(0)} Med</span>}
+                                      <span style={{ color: '#00d97e' }}>${ptc.targetHigh?.toFixed(0)} High</span>
+                                    </div>
+                                    <div style={{ display: 'flex', gap: 10, marginTop: 4, fontSize: 10, color: 'var(--text3)', fontFamily: mono }}>
+                                      <span><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#0088ff', marginRight: 4 }} />Consensus</span>
+                                      <span><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: 'var(--accent)', marginRight: 4 }} />Price</span>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Recent analyst ratings */}
+                                {ratings.length > 0 && (
+                                  <div>
+                                    <div style={{ fontSize: 10, color: 'var(--text3)', fontFamily: mono, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6 }}>Recent Ratings</div>
+                                    <div style={{ border: '1px solid var(--border)', borderRadius: 4, overflow: 'hidden' }}>
+                                      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto auto', background: 'var(--bg3)', padding: '6px 10px', fontSize: 9, color: 'var(--text3)', fontFamily: mono, letterSpacing: 1, textTransform: 'uppercase', gap: 8 }}>
+                                        <span>Firm</span><span>Rating</span><span>Target</span><span>Date</span>
+                                      </div>
+                                      {ratings.slice(0, 8).map((rt: any, i: number) => (
+                                        <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr auto auto auto', padding: '7px 10px', fontSize: 11, fontFamily: mono, borderTop: '1px solid var(--border)', gap: 8, alignItems: 'center', background: i % 2 === 0 ? 'var(--bg2)' : 'var(--bg)' }}>
+                                          <span style={{ color: 'var(--text2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{rt.analystCompany || rt.analystName || '—'}</span>
+                                          <span style={{ color: gradeColor(rt.newsGrade), fontSize: 10, fontWeight: 600, whiteSpace: 'nowrap' }}>{rt.newsGrade || '—'}</span>
+                                          <span style={{ color: 'var(--text)', textAlign: 'right' }}>{rt.priceTarget != null ? '$' + rt.priceTarget.toFixed(0) : '—'}</span>
+                                          <span style={{ color: 'var(--text3)', fontSize: 10, whiteSpace: 'nowrap' }}>
+                                            {rt.newsURL
+                                              ? <a href={rt.newsURL} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', textDecoration: 'none' }}>{(rt.publishedDate || '').slice(0, 10)} ↗</a>
+                                              : (rt.publishedDate || '').slice(0, 10)
+                                            }
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             )
                           })()}
