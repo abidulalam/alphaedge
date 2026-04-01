@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
 
   if (!q.trim()) return NextResponse.json({ error: 'query required' }, { status: 400 })
 
-  const params = new URLSearchParams({ q: '"' + q + '"', forms: form, dateOrder: 'desc' })
+  const params = new URLSearchParams({ q: '"' + q + '"', forms: form })
   if (startdt && enddt) {
     params.set('dateRange', 'custom')
     params.set('startdt', startdt)
@@ -54,6 +54,9 @@ export async function GET(req: NextRequest) {
         : '',
     }
   })
+
+  // Sort by filing date descending (latest first)
+  filings.sort((a, b) => (b.filingDate > a.filingDate ? 1 : b.filingDate < a.filingDate ? -1 : 0))
 
   // Filing Analysis: count mentions per company
   const companyCounts: Record<string, number> = {}
