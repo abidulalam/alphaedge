@@ -29,14 +29,25 @@ export async function GET(req: NextRequest) {
 
   const filings = hits.slice(0, 50).map((h: any) => {
     const src = h._source ?? {}
-    const accNo: string = src.accession_no ?? ''
-    const entityId: string = src.entity_id ?? ''
+    // Actual EDGAR field names: adsh, ciks[], display_names[], file_date, form
+    const accNo: string = src.adsh ?? src.accession_no ?? ''
+    const cikRaw = Array.isArray(src.ciks) ? src.ciks[0] : (src.entity_id ?? '')
+    const entityId = cikRaw ? String(cikRaw).replace(/^0+/, '') : ''
+
+    // display_names is like ["Apple Inc.  (AAPL)  (CIK 0000320193)"]
+    let entityName = src.entity_name ?? ''
+    if (!entityName && Array.isArray(src.display_names) && src.display_names.length > 0) {
+      entityName = src.display_names[0].replace(/\s*\(CIK\s*\d+\)\s*$/, '').trim()
+    }
+
+    const formType = src.form_type ?? src.form ?? form
+
     return {
-      entityName:      src.entity_name     ?? '',
-      cik:             entityId,
+      entityName,
+      cik: entityId,
       filingDate:      src.file_date        ?? '',
-      form:            src.form_type        ?? form,
-      periodOfReport:  src.period_of_report ?? '',
+      form:            formType,
+      periodOfReport:  src.period_ending    ?? src.period_of_report ?? '',
       accessionNumber: accNo,
       secLink: accNo && entityId
         ? 'https://www.sec.gov/Archives/edgar/data/' + entityId + '/' + accNo.replace(/-/g, '') + '/'

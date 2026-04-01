@@ -46,7 +46,16 @@ async function searchCIK(company: string): Promise<{ cik: string; name: string }
   const json = await res.json()
   const hit = json?.hits?.hits?.[0]?._source
   if (!hit) return null
-  return { cik: String(hit.entity_id ?? ''), name: hit.entity_name ?? company }
+  // Actual EDGAR fields: ciks[] and display_names[]
+  const cikRaw = Array.isArray(hit.ciks) ? hit.ciks[0] : (hit.entity_id ?? '')
+  const cik = String(cikRaw).replace(/^0+/, '')
+  let name = hit.entity_name ?? ''
+  if (!name && Array.isArray(hit.display_names) && hit.display_names.length > 0) {
+    name = hit.display_names[0].replace(/\s*\(CIK\s*\d+\)\s*$/, '').trim()
+    // Strip ticker suffix like "  (AAPL)  " if present
+    name = name.replace(/\s*\([A-Z0-9\.\-]+\)\s*$/, '').trim()
+  }
+  return { cik, name: name || company }
 }
 
 export async function GET(req: NextRequest) {
