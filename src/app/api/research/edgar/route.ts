@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
 
   if (!q.trim()) return NextResponse.json({ error: 'query required' }, { status: 400 })
 
-  const params = new URLSearchParams({ q: '"' + q + '"', forms: form })
+  const params = new URLSearchParams({ q: '"' + q + '"', forms: form, dateOrder: 'desc' })
   if (startdt && enddt) {
     params.set('dateRange', 'custom')
     params.set('startdt', startdt)
