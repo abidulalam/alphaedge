@@ -13,6 +13,7 @@ const NAV_LINKS = [
   ['Screener', '/screener'],
   ['Compare', '/compare'],
   ['Calendar', '/calendar'],
+  ['Fed Rates', '/fed-rates'],
   ['Portfolio', '/portfolio'],
   ['Alerts', '/alerts'],
 ]

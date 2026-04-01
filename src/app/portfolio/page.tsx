@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from 'react'
 import Navbar from '@/components/Navbar'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase-browser'
+import ChatBot from '@/components/ChatBot'
 
 const mono = 'IBM Plex Mono, monospace'
 
@@ -195,6 +196,7 @@ export default function Portfolio() {
   )
 
   return (
+    <>
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
       <Navbar />
 
@@ -377,5 +379,7 @@ export default function Portfolio() {
         </div>
       </div>
     </div>
+    <ChatBot />
+    </>
   )
 }
