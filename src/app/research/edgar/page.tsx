@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import Navbar from '@/components/Navbar'
+import ChatBot from '@/components/ChatBot'
 import { useIsMobile } from '@/hooks/useIsMobile'
 
 const mono = 'IBM Plex Mono, monospace'
@@ -10,20 +11,21 @@ const FORM_TYPES = ['10-K', '10-Q', '8-K', 'S-1', 'DEF 14A', '20-F', '13F-HR', '
 type ViewMode = 'filings' | 'analysis'
 
 export default function EdgarPage() {
-  const [query, setQuery]       = useState('')
-  const [form, setForm]         = useState('10-K')
-  const [startdt, setStartdt]   = useState('')
-  const [enddt, setEnddt]       = useState('')
-  const [results, setResults]   = useState<any>(null)
-  const [loading, setLoading]   = useState(false)
-  const [error, setError]       = useState<string | null>(null)
-  const [viewMode, setViewMode] = useState<ViewMode>('filings')
+  const [query, setQuery]           = useState('')
+  const [form, setForm]             = useState('10-K')
+  const [startdt, setStartdt]       = useState('')
+  const [enddt, setEnddt]           = useState('')
+  const [results, setResults]       = useState<any>(null)
+  const [loading, setLoading]       = useState(false)
+  const [error, setError]           = useState<string | null>(null)
+  const [viewMode, setViewMode]     = useState<ViewMode>('filings')
+  const [selectedFiling, setSelectedFiling] = useState<any>(null)
   const isMobile = useIsMobile()
 
   async function search(e: React.FormEvent) {
     e.preventDefault()
     if (!query.trim()) return
-    setLoading(true); setError(null); setResults(null)
+    setLoading(true); setError(null); setResults(null); setSelectedFiling(null)
     try {
       const params = new URLSearchParams({ q: query, form })
       if (startdt) params.set('startdt', startdt)
@@ -38,6 +40,19 @@ export default function EdgarPage() {
       setLoading(false)
     }
   }
+
+  // Build chatbot context from selected filing
+  const chatContext = selectedFiling ? {
+    ticker: selectedFiling.entityName,
+    name: selectedFiling.entityName,
+    sector: selectedFiling.form + ' filing · Period: ' + (selectedFiling.periodOfReport || 'N/A') + ' · Filed: ' + selectedFiling.filingDate,
+    // Reuse unused fields to pass filing info to system prompt
+    filingType: selectedFiling.form,
+    filingPeriod: selectedFiling.periodOfReport,
+    filingDate: selectedFiling.filingDate,
+    secLink: selectedFiling.secLink,
+    searchQuery: query,
+  } as any : undefined
 
   return (
     <>
@@ -98,25 +113,55 @@ export default function EdgarPage() {
               </div>
             </div>
 
+            {selectedFiling && (
+              <div style={{ marginBottom: 16, padding: '10px 14px', background: 'rgba(255,85,0,0.08)', border: '1px solid rgba(255,85,0,0.3)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                <div style={{ fontSize: 12, color: 'var(--text2)', fontFamily: mono }}>
+                  <span style={{ color: 'var(--accent)' }}>AI context set:</span>{' '}
+                  {selectedFiling.entityName} · {selectedFiling.form} · {selectedFiling.filingDate}
+                </div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <span style={{ fontSize: 11, color: 'var(--text3)', fontFamily: mono }}>Open AI chat ↘</span>
+                  <button onClick={() => setSelectedFiling(null)} style={{ fontSize: 11, fontFamily: mono, color: 'var(--text3)', background: 'transparent', border: 'none', cursor: 'pointer' }}>✕ clear</button>
+                </div>
+              </div>
+            )}
+
             {viewMode === 'filings' ? (
               /* Filings table */
               results.filings.length === 0 ? (
                 <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--text3)', fontFamily: mono, fontSize: 13 }}>No filings found.</div>
               ) : (
                 <div style={{ border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr auto' : '2fr 1fr 80px 100px auto', background: 'var(--bg3)', borderBottom: '1px solid var(--border)' }}>
-                    {['Company', ...(isMobile ? [] : ['Period', 'Form', 'Filed']), 'SEC Link'].map((h, i) => (
+                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr auto' : '2fr 1fr 80px 100px auto auto', background: 'var(--bg3)', borderBottom: '1px solid var(--border)' }}>
+                    {['Company', ...(isMobile ? [] : ['Period', 'Form', 'Filed', 'Ask AI']), 'SEC Link'].map((h, i) => (
                       <div key={h} style={{ padding: '9px 12px', fontSize: 10, color: 'var(--text3)', fontFamily: mono, letterSpacing: 1, textTransform: 'uppercase', textAlign: i > 0 ? 'right' : 'left' }}>{h}</div>
                     ))}
                   </div>
                   {results.filings.map((f: any, i: number) => (
-                    <div key={i} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr auto' : '2fr 1fr 80px 100px auto', borderBottom: '1px solid var(--border)', background: i % 2 === 0 ? 'var(--bg2)' : 'var(--bg)', alignItems: 'center' }}>
+                    <div key={i} style={{
+                      display: 'grid', gridTemplateColumns: isMobile ? '1fr auto' : '2fr 1fr 80px 100px auto auto',
+                      borderBottom: '1px solid var(--border)',
+                      background: selectedFiling === f ? 'rgba(255,85,0,0.06)' : i % 2 === 0 ? 'var(--bg2)' : 'var(--bg)',
+                      alignItems: 'center',
+                    }}>
                       <div style={{ padding: '10px 12px', fontSize: 13, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.entityName}</div>
                       {!isMobile && (
                         <>
                           <div style={{ padding: '10px 12px', fontFamily: mono, fontSize: 11, color: 'var(--text3)', textAlign: 'right' }}>{f.periodOfReport || '—'}</div>
                           <div style={{ padding: '10px 12px', fontFamily: mono, fontSize: 11, color: 'var(--text2)', textAlign: 'right' }}>{f.form}</div>
                           <div style={{ padding: '10px 12px', fontFamily: mono, fontSize: 11, color: 'var(--text3)', textAlign: 'right' }}>{f.filingDate}</div>
+                          <div style={{ padding: '10px 12px', textAlign: 'right' }}>
+                            <button
+                              onClick={() => setSelectedFiling(f === selectedFiling ? null : f)}
+                              style={{
+                                fontSize: 11, fontFamily: mono, padding: '4px 10px',
+                                border: '1px solid', borderRadius: 3, cursor: 'pointer',
+                                borderColor: selectedFiling === f ? 'var(--accent)' : 'var(--border)',
+                                background: selectedFiling === f ? 'rgba(255,85,0,0.15)' : 'transparent',
+                                color: selectedFiling === f ? 'var(--accent)' : 'var(--text3)',
+                              }}
+                            >{selectedFiling === f ? 'Selected' : 'Ask AI'}</button>
+                          </div>
                         </>
                       )}
                       <div style={{ padding: '10px 12px', textAlign: 'right' }}>
@@ -161,6 +206,8 @@ export default function EdgarPage() {
           </div>
         )}
       </main>
+
+      <ChatBot stockContext={chatContext} />
     </>
   )
 }

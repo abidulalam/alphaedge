@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase-browser'
 import SearchBar from './SearchBar'
@@ -30,6 +30,7 @@ export default function Navbar() {
   const [time, setTime]         = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
   const [researchOpen, setResearchOpen] = useState(false)
+  const researchCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isMobile = useIsMobile()
 
   useEffect(() => {
@@ -79,8 +80,13 @@ export default function Navbar() {
           ))}
           {/* Research dropdown */}
           <div style={{ position: 'relative' }}
-            onMouseEnter={() => setResearchOpen(true)}
-            onMouseLeave={() => setResearchOpen(false)}
+            onMouseEnter={() => {
+              if (researchCloseTimer.current) clearTimeout(researchCloseTimer.current)
+              setResearchOpen(true)
+            }}
+            onMouseLeave={() => {
+              researchCloseTimer.current = setTimeout(() => setResearchOpen(false), 200)
+            }}
           >
             <span style={{ color: 'var(--text2)', cursor: 'pointer', transition: 'color 0.1s', userSelect: 'none' }}
               onMouseEnter={e => (e.currentTarget.style.color = 'var(--text)')}

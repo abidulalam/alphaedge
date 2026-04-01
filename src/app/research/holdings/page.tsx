@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import Navbar from '@/components/Navbar'
+import ChatBot from '@/components/ChatBot'
 import { useIsMobile } from '@/hooks/useIsMobile'
 
 const mono = 'IBM Plex Mono, monospace'
@@ -48,6 +49,18 @@ export default function HoldingsPage() {
     e.preventDefault()
     search(query)
   }
+
+  // Build chatbot context from 13F result
+  const chatContext = result ? {
+    ticker: result.entityName,
+    name: result.entityName,
+    // Pass portfolio summary via sector field
+    sector: '13F-HR institutional filing · Period: ' + result.periodOfReport + ' · Filed: ' + result.filingDate,
+    marketCap: result.totalValue * 1000, // convert thousands to dollars
+    // Top 5 holdings summary as a custom field
+    top5Holdings: result.holdings.slice(0, 5).map((h: any) => h.nameOfIssuer + ' (' + h.pctOfPortfolio.toFixed(1) + '%)').join(', '),
+    holdingsCount: result.holdings.length,
+  } as any : undefined
 
   return (
     <>
@@ -110,6 +123,9 @@ export default function HoldingsPage() {
                   <div style={{ fontFamily: mono, fontSize: 11, color: 'var(--text3)' }}>
                     13F-HR · Period: {result.periodOfReport} · Filed: {result.filingDate}
                   </div>
+                  <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text3)', fontFamily: mono }}>
+                    Use the AI chat button below to ask questions about this portfolio ↘
+                  </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <div style={{ fontFamily: mono, fontSize: 20, fontWeight: 700, color: 'var(--accent)' }}>{fmtValue(result.totalValue)}</div>
@@ -159,6 +175,8 @@ export default function HoldingsPage() {
           </div>
         )}
       </main>
+
+      <ChatBot stockContext={chatContext} />
     </>
   )
 }
