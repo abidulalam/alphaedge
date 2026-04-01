@@ -8,8 +8,6 @@ const mono = 'IBM Plex Mono, monospace'
 
 const FORM_TYPES = ['10-K', '10-Q', '8-K', 'S-1', 'DEF 14A', '20-F', '13F-HR', 'SC 13G', 'SC 13D']
 
-type ViewMode = 'filings' | 'analysis'
-
 export default function EdgarPage() {
   const [query, setQuery]           = useState('')
   const [form, setForm]             = useState('10-K')
@@ -18,7 +16,6 @@ export default function EdgarPage() {
   const [results, setResults]       = useState<any>(null)
   const [loading, setLoading]       = useState(false)
   const [error, setError]           = useState<string | null>(null)
-  const [viewMode, setViewMode]     = useState<ViewMode>('filings')
   const [selectedFiling, setSelectedFiling] = useState<any>(null)
   const isMobile = useIsMobile()
 
@@ -95,22 +92,9 @@ export default function EdgarPage() {
 
         {results && (
           <>
-            {/* Result summary + view toggle */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
-              <div style={{ fontFamily: mono, fontSize: 12, color: 'var(--text3)' }}>
-                <span style={{ color: 'var(--accent)', fontWeight: 700 }}>{results.total?.toLocaleString()}</span> results for &quot;{results.query}&quot; in {form}
-              </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                {(['filings', 'analysis'] as ViewMode[]).map(m => (
-                  <button key={m} onClick={() => setViewMode(m)} style={{
-                    padding: '5px 12px', fontSize: 11, fontFamily: mono, letterSpacing: 1, textTransform: 'uppercase',
-                    border: '1px solid', borderRadius: 3, cursor: 'pointer',
-                    borderColor: viewMode === m ? 'var(--accent)' : 'var(--border)',
-                    background: viewMode === m ? 'rgba(255,85,0,0.1)' : 'transparent',
-                    color: viewMode === m ? 'var(--accent)' : 'var(--text2)',
-                  }}>{m === 'filings' ? 'Filings' : 'Analysis'}</button>
-                ))}
-              </div>
+            {/* Result summary */}
+            <div style={{ marginBottom: 16, fontFamily: mono, fontSize: 12, color: 'var(--text3)' }}>
+              <span style={{ color: 'var(--accent)', fontWeight: 700 }}>{results.total?.toLocaleString()}</span> results for &quot;{results.query}&quot; in {form}
             </div>
 
             {selectedFiling && (
@@ -126,74 +110,50 @@ export default function EdgarPage() {
               </div>
             )}
 
-            {viewMode === 'filings' ? (
-              /* Filings table */
-              results.filings.length === 0 ? (
-                <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--text3)', fontFamily: mono, fontSize: 13 }}>No filings found.</div>
-              ) : (
-                <div style={{ border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr auto' : '2fr 1fr 80px 100px auto auto', background: 'var(--bg3)', borderBottom: '1px solid var(--border)' }}>
-                    {['Company', ...(isMobile ? [] : ['Period', 'Form', 'Filed', 'Ask AI']), 'SEC Link'].map((h, i) => (
-                      <div key={h} style={{ padding: '9px 12px', fontSize: 10, color: 'var(--text3)', fontFamily: mono, letterSpacing: 1, textTransform: 'uppercase', textAlign: i > 0 ? 'right' : 'left' }}>{h}</div>
-                    ))}
-                  </div>
-                  {results.filings.map((f: any, i: number) => (
-                    <div key={i} style={{
-                      display: 'grid', gridTemplateColumns: isMobile ? '1fr auto' : '2fr 1fr 80px 100px auto auto',
-                      borderBottom: '1px solid var(--border)',
-                      background: selectedFiling === f ? 'rgba(255,85,0,0.06)' : i % 2 === 0 ? 'var(--bg2)' : 'var(--bg)',
-                      alignItems: 'center',
-                    }}>
-                      <div style={{ padding: '10px 12px', fontSize: 13, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.entityName}</div>
-                      {!isMobile && (
-                        <>
-                          <div style={{ padding: '10px 12px', fontFamily: mono, fontSize: 11, color: 'var(--text3)', textAlign: 'right' }}>{f.periodOfReport || '—'}</div>
-                          <div style={{ padding: '10px 12px', fontFamily: mono, fontSize: 11, color: 'var(--text2)', textAlign: 'right' }}>{f.form}</div>
-                          <div style={{ padding: '10px 12px', fontFamily: mono, fontSize: 11, color: 'var(--text3)', textAlign: 'right' }}>{f.filingDate}</div>
-                          <div style={{ padding: '10px 12px', textAlign: 'right' }}>
-                            <button
-                              onClick={() => setSelectedFiling(f === selectedFiling ? null : f)}
-                              style={{
-                                fontSize: 11, fontFamily: mono, padding: '4px 10px',
-                                border: '1px solid', borderRadius: 3, cursor: 'pointer',
-                                borderColor: selectedFiling === f ? 'var(--accent)' : 'var(--border)',
-                                background: selectedFiling === f ? 'rgba(255,85,0,0.15)' : 'transparent',
-                                color: selectedFiling === f ? 'var(--accent)' : 'var(--text3)',
-                              }}
-                            >{selectedFiling === f ? 'Selected' : 'Ask AI'}</button>
-                          </div>
-                        </>
-                      )}
-                      <div style={{ padding: '10px 12px', textAlign: 'right' }}>
-                        {f.secLink
-                          ? <a href={f.secLink} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', fontFamily: mono, fontSize: 11, textDecoration: 'none' }}>View ↗</a>
-                          : <span style={{ color: 'var(--text3)', fontFamily: mono, fontSize: 11 }}>—</span>
-                        }
-                      </div>
-                    </div>
+            {results.filings.length === 0 ? (
+              <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--text3)', fontFamily: mono, fontSize: 13 }}>No filings found.</div>
+            ) : (
+              <div style={{ border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr auto' : '2fr 1fr 80px 100px auto auto', background: 'var(--bg3)', borderBottom: '1px solid var(--border)' }}>
+                  {['Company', ...(isMobile ? [] : ['Period', 'Form', 'Filed', 'Ask AI']), 'SEC Link'].map((h, i) => (
+                    <div key={h} style={{ padding: '9px 12px', fontSize: 10, color: 'var(--text3)', fontFamily: mono, letterSpacing: 1, textTransform: 'uppercase', textAlign: i > 0 ? 'right' : 'left' }}>{h}</div>
                   ))}
                 </div>
-              )
-            ) : (
-              /* Analysis view — top companies */
-              <div>
-                <div style={{ marginBottom: 12, fontFamily: mono, fontSize: 11, color: 'var(--text3)', letterSpacing: 1, textTransform: 'uppercase' }}>Top companies mentioning &quot;{results.query}&quot;</div>
-                <div style={{ border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
-                  {results.topCompanies.map((c: any, i: number) => {
-                    const maxCount = results.topCompanies[0]?.count || 1
-                    return (
-                      <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 60px', borderBottom: '1px solid var(--border)', background: i % 2 === 0 ? 'var(--bg2)' : 'var(--bg)', alignItems: 'center', padding: '10px 12px' }}>
-                        <div>
-                          <div style={{ fontSize: 13, color: 'var(--text)', marginBottom: 4 }}>{c.name}</div>
-                          <div style={{ height: 4, borderRadius: 2, background: 'var(--border2)', overflow: 'hidden' }}>
-                            <div style={{ height: '100%', width: ((c.count / maxCount) * 100) + '%', background: 'var(--accent)', borderRadius: 2 }} />
-                          </div>
+                {results.filings.map((f: any, i: number) => (
+                  <div key={i} style={{
+                    display: 'grid', gridTemplateColumns: isMobile ? '1fr auto' : '2fr 1fr 80px 100px auto auto',
+                    borderBottom: '1px solid var(--border)',
+                    background: selectedFiling === f ? 'rgba(255,85,0,0.06)' : i % 2 === 0 ? 'var(--bg2)' : 'var(--bg)',
+                    alignItems: 'center',
+                  }}>
+                    <div style={{ padding: '10px 12px', fontSize: 13, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.entityName}</div>
+                    {!isMobile && (
+                      <>
+                        <div style={{ padding: '10px 12px', fontFamily: mono, fontSize: 11, color: 'var(--text3)', textAlign: 'right' }}>{f.periodOfReport || '—'}</div>
+                        <div style={{ padding: '10px 12px', fontFamily: mono, fontSize: 11, color: 'var(--text2)', textAlign: 'right' }}>{f.form}</div>
+                        <div style={{ padding: '10px 12px', fontFamily: mono, fontSize: 11, color: 'var(--text3)', textAlign: 'right' }}>{f.filingDate}</div>
+                        <div style={{ padding: '10px 12px', textAlign: 'right' }}>
+                          <button
+                            onClick={() => setSelectedFiling(f === selectedFiling ? null : f)}
+                            style={{
+                              fontSize: 11, fontFamily: mono, padding: '4px 10px',
+                              border: '1px solid', borderRadius: 3, cursor: 'pointer',
+                              borderColor: selectedFiling === f ? 'var(--accent)' : 'var(--border)',
+                              background: selectedFiling === f ? 'rgba(255,85,0,0.15)' : 'transparent',
+                              color: selectedFiling === f ? 'var(--accent)' : 'var(--text3)',
+                            }}
+                          >{selectedFiling === f ? 'Selected' : 'Ask AI'}</button>
                         </div>
-                        <div style={{ fontFamily: mono, fontSize: 14, fontWeight: 700, color: 'var(--accent)', textAlign: 'right' }}>{c.count}</div>
-                      </div>
-                    )
-                  })}
-                </div>
+                      </>
+                    )}
+                    <div style={{ padding: '10px 12px', textAlign: 'right' }}>
+                      {f.secLink
+                        ? <a href={f.secLink} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', fontFamily: mono, fontSize: 11, textDecoration: 'none' }}>View ↗</a>
+                        : <span style={{ color: 'var(--text3)', fontFamily: mono, fontSize: 11 }}>—</span>
+                      }
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </>

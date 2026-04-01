@@ -41,6 +41,7 @@ const SUGGESTIONS = [
 
 export default function ChatBot({ stockContext, onAskAI }: { stockContext?: StockContext; onAskAI?: (fn: (q: string) => void) => void }) {
   const [open, setOpen] = useState(false)
+  const [expanded, setExpanded] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -147,18 +148,20 @@ export default function ChatBot({ stockContext, onAskAI }: { stockContext?: Stoc
       {open && (
         <div style={{
           position: 'fixed',
-          bottom: 92,
-          right: 28,
-          width: 360,
-          maxHeight: 520,
+          bottom: expanded ? 0 : 92,
+          right: expanded ? 0 : 28,
+          width: expanded ? '100vw' : 380,
+          height: expanded ? '100vh' : 'auto',
+          maxHeight: expanded ? '100vh' : 560,
           background: 'var(--bg)',
-          border: '1px solid var(--border)',
-          borderRadius: 12,
+          border: expanded ? 'none' : '1px solid var(--border)',
+          borderRadius: expanded ? 0 : 12,
           display: 'flex',
           flexDirection: 'column',
           zIndex: 999,
           boxShadow: '0 8px 40px rgba(0,0,0,0.5)',
           overflow: 'hidden',
+          transition: 'width 0.2s, height 0.2s, bottom 0.2s, right 0.2s, border-radius 0.2s',
         }}>
           {/* Header */}
           <div style={{
@@ -173,7 +176,7 @@ export default function ChatBot({ stockContext, onAskAI }: { stockContext?: Stoc
               width: 8, height: 8, borderRadius: '50%',
               background: 'var(--accent)', flexShrink: 0,
             }} />
-            <div>
+            <div style={{ flex: 1 }}>
               <div style={{ fontFamily: mono, fontSize: 12, color: 'var(--accent)', letterSpacing: 1 }}>
                 ALPHAEDGE AI
               </div>
@@ -181,6 +184,24 @@ export default function ChatBot({ stockContext, onAskAI }: { stockContext?: Stoc
                 {stockContext?.ticker ? `Analyzing ${ticker}` : 'Financial Assistant'}
               </div>
             </div>
+            {/* Expand/collapse toggle */}
+            <button
+              onClick={() => setExpanded(e => !e)}
+              title={expanded ? 'Collapse' : 'Expand'}
+              style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 4, color: 'var(--text3)', display: 'flex', alignItems: 'center' }}
+            >
+              {expanded ? (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <polyline points="4 14 10 14 10 20" /><polyline points="20 10 14 10 14 4" />
+                  <line x1="10" y1="14" x2="3" y2="21" /><line x1="21" y1="3" x2="14" y2="10" />
+                </svg>
+              ) : (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <polyline points="15 3 21 3 21 9" /><polyline points="9 21 3 21 3 15" />
+                  <line x1="21" y1="3" x2="14" y2="10" /><line x1="3" y1="21" x2="10" y2="14" />
+                </svg>
+              )}
+            </button>
           </div>
 
           {/* Messages */}
