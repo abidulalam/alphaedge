@@ -28,9 +28,14 @@ export async function snapLoginUrl(
   const params: Record<string, unknown> = { userId, userSecret }
   if (broker) params.broker = broker
   const res = await snap.authentication.loginSnapTradeUser(params as any)
+  // redirectURI is returned to the client for browser-side navigation only —
+  // it is never fetched server-side. Not an SSRF risk.
   const redirectURI = (res.data as any)?.redirectURI
   if (!redirectURI) throw new Error('SnapTrade login failed — no redirectURI returned')
-  return redirectURI as string
+  if (typeof redirectURI !== 'string' || !redirectURI.startsWith('https://')) {
+    throw new Error('SnapTrade returned an invalid redirect URL')
+  }
+  return redirectURI
 }
 
 // ─── Accounts ────────────────────────────────────────────────────────────────
