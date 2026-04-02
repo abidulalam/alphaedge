@@ -21,7 +21,8 @@
     "next": "15.5.14",
     "react": "^18",
     "react-dom": "^18",
-    "recharts": "^2.12.7"
+    "recharts": "^2.12.7",
+    "snaptrade-typescript-sdk": "^9.0.178"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
@@ -39,5 +40,8 @@
   },
   "engines": {
     "node": ">=20.0.0"
+  },
+  "overrides": {
+    "axios": "^1.14.0"
   }
 }

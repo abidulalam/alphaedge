@@ -24,6 +24,11 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json().catch(() => ({}))
-  const redirectUrl = await snapLoginUrl(user.id, profile.snaptrade_user_secret, body.broker)
+  let redirectUrl: string
+  try {
+    redirectUrl = await snapLoginUrl(user.id, profile.snaptrade_user_secret, body.broker)
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message ?? 'SnapTrade connect failed' }, { status: 500 })
+  }
   return NextResponse.json({ redirectUrl })
 }

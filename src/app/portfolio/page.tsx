@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from 'react'
 import Navbar from '@/components/Navbar'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase-browser'
+import ChatBot from '@/components/ChatBot'
 
 const mono = 'IBM Plex Mono, monospace'
 
@@ -118,11 +119,17 @@ export default function Portfolio() {
     try {
       // Register user with SnapTrade first (idempotent)
       const regRes = await fetch('/api/snaptrade/register', { method: 'POST' })
-      if (!regRes.ok) throw new Error('Registration failed')
+      if (!regRes.ok) {
+        const regErr = await regRes.json().catch(() => ({}))
+        throw new Error(regErr.error ?? 'Registration failed')
+      }
 
       // Get OAuth portal URL
       const conRes = await fetch('/api/snaptrade/connect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
-      if (!conRes.ok) throw new Error('Could not get connection URL')
+      if (!conRes.ok) {
+        const conErr = await conRes.json().catch(() => ({}))
+        throw new Error(conErr.error ?? 'Could not get connection URL')
+      }
       const { redirectUrl } = await conRes.json()
 
       // Open in a popup window
@@ -189,6 +196,7 @@ export default function Portfolio() {
   )
 
   return (
+    <>
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
       <Navbar />
 
@@ -371,5 +379,7 @@ export default function Portfolio() {
         </div>
       </div>
     </div>
+    <ChatBot />
+    </>
   )
 }

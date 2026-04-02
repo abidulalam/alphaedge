@@ -25,7 +25,12 @@ export async function POST() {
   }
 
   // Register with SnapTrade (userId = Supabase user.id)
-  const { userSecret } = await snapRegisterUser(user.id)
+  let userSecret: string
+  try {
+    ;({ userSecret } = await snapRegisterUser(user.id))
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message ?? 'SnapTrade registration failed' }, { status: 500 })
+  }
 
   // Persist the secret
   await supabase.from('profiles').upsert({

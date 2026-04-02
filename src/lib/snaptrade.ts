@@ -1,43 +1,20 @@
-import crypto from 'crypto'
+import { Snaptrade } from 'snaptrade-typescript-sdk'
 
 const CLIENT_ID    = process.env.SNAPTRADE_CLIENT_ID    ?? ''
 const CONSUMER_KEY = process.env.SNAPTRADE_CONSUMER_KEY ?? ''
-const BASE_URL     = 'https://api.snaptrade.com/api/v1'
 
-/** Build the required SnapTrade request headers (signature + timestamp). */
-function snapHeaders(timestamp: number): Record<string, string> {
-  const signature = crypto
-    .createHmac('sha256', CONSUMER_KEY)
-    .update(`${CLIENT_ID}${timestamp}${CONSUMER_KEY}`)
-    .digest('base64')
-  return {
-    'Content-Type':    'application/json',
-    'clientId':        CLIENT_ID,
-    'timestamp':       String(timestamp),
-    'signature':       signature,
-  }
-}
-
-/** Append required query params to a SnapTrade URL that needs user auth. */
-function userParams(userId: string, userSecret: string) {
-  return new URLSearchParams({ clientId: CLIENT_ID, userId, userSecret })
+function client() {
+  return new Snaptrade({ clientId: CLIENT_ID, consumerKey: CONSUMER_KEY })
 }
 
 // ─── User registration ───────────────────────────────────────────────────────
 
 export async function snapRegisterUser(userId: string): Promise<{ userSecret: string }> {
-  const ts = Math.floor(Date.now() / 1000)
-  const res = await fetch(`${BASE_URL}/snapTrade/registerUser`, {
-    method: 'POST',
-    headers: snapHeaders(ts),
-    body: JSON.stringify({ userId }),
-  })
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error(err?.detail ?? `SnapTrade registerUser failed: ${res.status}`)
-  }
-  const data = await res.json()
-  return { userSecret: data.userSecret }
+  const snap = client()
+  const res = await snap.authentication.registerSnapTradeUser({ userId })
+  const userSecret = (res.data as any)?.userSecret
+  if (!userSecret) throw new Error('SnapTrade registration failed — no userSecret returned')
+  return { userSecret }
 }
 
 // ─── Connection portal URL ───────────────────────────────────────────────────
@@ -47,41 +24,39 @@ export async function snapLoginUrl(
   userSecret: string,
   broker?: string,
 ): Promise<string> {
-  const ts = Math.floor(Date.now() / 1000)
-  const body: Record<string, string> = { userId, userSecret }
-  if (broker) body.broker = broker
-
-  const res = await fetch(`${BASE_URL}/snapTrade/login`, {
-    method: 'POST',
-    headers: snapHeaders(ts),
-    body: JSON.stringify(body),
-  })
-  if (!res.ok) throw new Error(`SnapTrade login failed: ${res.status}`)
-  const data = await res.json()
-  return data.redirectURI as string
+  const snap = client()
+  const params: Record<string, unknown> = { userId, userSecret }
+  if (broker) params.broker = broker
+  const res = await snap.authentication.loginSnapTradeUser(params as any)
+  // redirectURI is returned to the client for browser-side navigation only —
+  // it is never fetched server-side. Not an SSRF risk.
+  const redirectURI = (res.data as any)?.redirectURI
+  if (!redirectURI) throw new Error('SnapTrade login failed — no redirectURI returned')
+  if (typeof redirectURI !== 'string' || !redirectURI.startsWith('https://')) {
+    throw new Error('SnapTrade returned an invalid redirect URL')
+  }
+  return redirectURI
 }
 
 // ─── Accounts ────────────────────────────────────────────────────────────────
 
 export interface SnapAccount {
-  id:           string
-  name:         string
+  id:              string
+  name:            string
   institutionName: string
-  number:       string
+  number:          string
 }
 
 export async function snapListAccounts(
   userId: string,
   userSecret: string,
 ): Promise<SnapAccount[]> {
-  const ts = Math.floor(Date.now() / 1000)
-  const url = `${BASE_URL}/accounts?${userParams(userId, userSecret)}`
-  const res = await fetch(url, { headers: snapHeaders(ts) })
-  if (!res.ok) return []
-  const data = await res.json()
+  const snap = client()
+  const res = await snap.accountInformation.listUserAccounts({ userId, userSecret })
+  const data = res.data
   return (Array.isArray(data) ? data : []).map((a: any) => ({
-    id:              a.id,
-    name:            a.name,
+    id:              a.id ?? '',
+    name:            a.name ?? '',
     institutionName: a.institution_name ?? a.brokerage_authorization?.brokerage?.name ?? 'Broker',
     number:          a.number ?? '',
   }))
@@ -92,9 +67,8 @@ export async function snapDeleteAccount(
   userSecret: string,
   accountId: string,
 ): Promise<void> {
-  const ts = Math.floor(Date.now() / 1000)
-  const url = `${BASE_URL}/accounts/${accountId}?${userParams(userId, userSecret)}`
-  await fetch(url, { method: 'DELETE', headers: snapHeaders(ts) })
+  const snap = client()
+  await snap.connections.removeBrokerageAuthorization({ authorizationId: accountId, userId, userSecret })
 }
 
 // ─── Holdings ────────────────────────────────────────────────────────────────
@@ -114,36 +88,36 @@ export async function snapFetchHoldings(
   userId: string,
   userSecret: string,
 ): Promise<SnapHolding[]> {
-  const ts = Math.floor(Date.now() / 1000)
-  const url = `${BASE_URL}/holdings?${userParams(userId, userSecret)}`
-  const res = await fetch(url, { headers: snapHeaders(ts) })
-  if (!res.ok) return []
-  const data = await res.json()
+  const snap = client()
+  const res = await snap.accountInformation.getAllUserHoldings({ userId, userSecret })
+  const data = res.data
 
   const holdings: SnapHolding[] = []
   for (const account of Array.isArray(data) ? data : []) {
-    const broker      = account.institution_name
-      ?? account.brokerage_authorization?.brokerage?.name
+    const broker      = account.account?.institution_name
+      ?? account.account?.brokerage_authorization?.brokerage?.name
       ?? 'Broker'
     const accountId   = account.account?.id ?? ''
     const accountName = account.account?.name ?? broker
 
     for (const pos of account.positions ?? []) {
-      const ticker = pos.symbol?.symbol ?? pos.symbol?.ticker ?? pos.ticker ?? null
-      if (!ticker) continue
+      const sym = pos.symbol
+      const ticker = typeof sym === 'string'
+        ? sym
+        : (sym?.symbol?.ticker ?? sym?.symbol?.symbol ?? sym?.ticker ?? sym?.raw_symbol ?? null)
+      if (!ticker || typeof ticker !== 'string') continue
+      const units = Number(pos.units ?? 0)
+      const price = pos.price != null ? Number(pos.price) : null
+      const avgCost = pos.average_purchase_price != null ? Number(pos.average_purchase_price) : null
       holdings.push({
         accountId,
         broker,
         accountName,
         ticker,
-        shares: Number(pos.units ?? 0),
-        price:  pos.price != null ? Number(pos.price) : null,
-        value:  pos.open_pnl != null || pos.price != null
-          ? Number(pos.units ?? 0) * Number(pos.price ?? 0)
-          : null,
-        cost:   pos.average_purchase_price != null
-          ? Number(pos.units ?? 0) * Number(pos.average_purchase_price)
-          : null,
+        shares: units,
+        price,
+        value:  price != null ? units * price : null,
+        cost:   avgCost != null ? units * avgCost : null,
       })
     }
   }

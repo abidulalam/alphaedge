@@ -13,8 +13,30 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Groq API key not configured' }, { status: 500 })
   }
 
+  // Detect if this is a filing/portfolio context (from Research pages) vs stock context (from Dashboard)
+  const isFilingContext = stockContext?.filingType || stockContext?.top5Holdings
+
   const systemPrompt = stockContext
-    ? `You are AlphaEdge AI, a financial analyst assistant embedded in the AlphaEdge stock research platform. You are knowledgeable, concise, and data-driven.
+    ? isFilingContext
+      ? `You are AlphaEdge AI, a financial analyst assistant embedded in the AlphaEdge research platform. You are knowledgeable, concise, and data-driven.
+
+${stockContext.top5Holdings
+  ? `You are analyzing an institutional portfolio (13F filing):
+- Institution: ${stockContext.name}
+- Filing: ${stockContext.sector ?? '13F-HR'}
+- Total Portfolio Value: ${stockContext.marketCap ? (stockContext.marketCap >= 1e12 ? '$' + (stockContext.marketCap / 1e12).toFixed(2) + 'T' : stockContext.marketCap >= 1e9 ? '$' + (stockContext.marketCap / 1e9).toFixed(2) + 'B' : '$' + (stockContext.marketCap / 1e6).toFixed(2) + 'M') : 'N/A'}
+- Number of Positions: ${stockContext.holdingsCount ?? 'N/A'}
+- Top 5 Holdings: ${stockContext.top5Holdings}
+
+Answer questions about this institutional portfolio — investment strategy, concentration risk, sector exposure, notable positions, or what the holdings reveal about the manager's thesis. Be concise and analytical. Do not make up data beyond what is provided.`
+  : `You are analyzing an SEC EDGAR filing:
+- Company: ${stockContext.name}
+- Filing: ${stockContext.sector ?? stockContext.filingType}
+- SEC EDGAR Link: ${stockContext.secLink ?? 'N/A'}
+- Search keyword that surfaced this filing: "${stockContext.searchQuery ?? ''}"
+
+Help the user understand what this type of filing contains, what to look for, and what questions to ask about it. Answer questions about the company's disclosures, regulatory filings, and what the filing type (${stockContext.filingType ?? 'SEC filing'}) typically covers. Be concise and analytical.`}`
+      : `You are AlphaEdge AI, a financial analyst assistant embedded in the AlphaEdge stock research platform. You are knowledgeable, concise, and data-driven.
 
 Current stock context:
 - Ticker: ${stockContext.ticker}
