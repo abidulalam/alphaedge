@@ -152,14 +152,22 @@ export default function Portfolio() {
   async function disconnectAccount(authorizationId: string, accountId: string) {
     if (!confirm('Disconnect this account? All its positions will be removed from your portfolio view.')) return
     setDisconnecting(accountId)
+    setSnapErr(null)
     try {
-      await fetch('/api/snaptrade/disconnect', {
+      const res = await fetch('/api/snaptrade/disconnect', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ accountId: authorizationId }),
       })
-      await loadSnap()
-    } catch (_) {}
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setSnapErr('Disconnect failed: ' + (json.error ?? res.statusText))
+      } else {
+        await loadSnap()
+      }
+    } catch (e: any) {
+      setSnapErr('Disconnect failed: ' + (e.message ?? 'Unknown error'))
+    }
     setDisconnecting(null)
   }
 

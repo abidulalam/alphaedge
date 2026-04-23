@@ -55,13 +55,17 @@ export async function snapListAccounts(
   const snap = client()
   const res = await snap.accountInformation.listUserAccounts({ userId, userSecret })
   const data = res.data
-  return (Array.isArray(data) ? data : []).map((a: any) => ({
-    id:              a.id ?? '',
-    authorizationId: a.brokerage_authorization?.id ?? a.id ?? '',
-    name:            a.name ?? '',
-    institutionName: a.institution_name ?? a.brokerage_authorization?.brokerage?.name ?? 'Broker',
-    number:          a.number ?? '',
-  }))
+  return (Array.isArray(data) ? data : []).map((a: any) => {
+    const authorizationId = a.brokerage_authorization?.id ?? a.id ?? ''
+    console.log('[snapListAccounts] account:', { id: a.id, authorizationId, brokerage_authorization: a.brokerage_authorization })
+    return {
+      id:              a.id ?? '',
+      authorizationId,
+      name:            a.name ?? '',
+      institutionName: a.institution_name ?? a.brokerage_authorization?.brokerage?.name ?? 'Broker',
+      number:          a.number ?? '',
+    }
+  })
 }
 
 export async function snapDeleteAccount(
