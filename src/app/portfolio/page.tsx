@@ -30,7 +30,7 @@ interface ExtHolding {
   value:       number | null
   cost:        number | null
 }
-interface SnapAccount { id: string; name: string; institutionName: string; number: string }
+interface SnapAccount { id: string; authorizationId: string; name: string; institutionName: string; number: string }
 
 // Unified row type for the table
 type Row =
@@ -149,14 +149,14 @@ export default function Portfolio() {
     }
   }
 
-  async function disconnectAccount(accountId: string) {
+  async function disconnectAccount(authorizationId: string, accountId: string) {
     if (!confirm('Disconnect this account? All its positions will be removed from your portfolio view.')) return
     setDisconnecting(accountId)
     try {
       await fetch('/api/snaptrade/disconnect', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accountId }),
+        body: JSON.stringify({ accountId: authorizationId }),
       })
       await loadSnap()
     } catch (_) {}
@@ -259,7 +259,7 @@ export default function Portfolio() {
                       <span style={{ fontFamily: mono, fontSize: 12, fontWeight: 600, color: bc }}>{acct.institutionName}</span>
                       {acct.number && <span style={{ fontFamily: mono, fontSize: 11, color: 'var(--text3)' }}>···{acct.number.slice(-4)}</span>}
                       <button
-                        onClick={() => disconnectAccount(acct.id)}
+                        onClick={() => disconnectAccount(acct.authorizationId, acct.id)}
                         disabled={disconnecting === acct.id}
                         style={{ fontSize: 11, color: 'var(--text3)', background: 'transparent', border: 'none', cursor: 'pointer', padding: '0 2px', lineHeight: 1 }}
                         title="Disconnect account"
@@ -336,7 +336,10 @@ export default function Portfolio() {
                   <div style={{ fontFamily: mono, fontSize: 13, textAlign: 'right', color: pnl != null ? pc(pnl) : 'var(--text3)', fontWeight: 600 }}>{pnl != null ? (pnl >= 0 ? '+' : '') + money(pnl) : '—'}</div>
                   <div style={{ fontFamily: mono, fontSize: 13, textAlign: 'right', color: ret != null ? pc(ret) : 'var(--text3)' }}>{pct(ret)}</div>
                   <button
-                    onClick={() => disconnectAccount(holding.accountId)}
+                    onClick={() => {
+                      const acct = snapAccounts.find(a => a.id === holding.accountId)
+                      disconnectAccount(acct?.authorizationId ?? holding.accountId, holding.accountId)
+                    }}
                     disabled={disconnecting === holding.accountId}
                     style={{ fontFamily: mono, fontSize: 12, color: 'var(--text3)', cursor: 'pointer', textAlign: 'center', padding: '4px 8px', border: '1px solid var(--border)', borderRadius: 4 }}
                     title="Disconnect this account"

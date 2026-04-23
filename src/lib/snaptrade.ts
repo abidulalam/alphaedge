@@ -42,6 +42,7 @@ export async function snapLoginUrl(
 
 export interface SnapAccount {
   id:              string
+  authorizationId: string
   name:            string
   institutionName: string
   number:          string
@@ -56,6 +57,7 @@ export async function snapListAccounts(
   const data = res.data
   return (Array.isArray(data) ? data : []).map((a: any) => ({
     id:              a.id ?? '',
+    authorizationId: a.brokerage_authorization?.id ?? a.id ?? '',
     name:            a.name ?? '',
     institutionName: a.institution_name ?? a.brokerage_authorization?.brokerage?.name ?? 'Broker',
     number:          a.number ?? '',
@@ -65,10 +67,10 @@ export async function snapListAccounts(
 export async function snapDeleteAccount(
   userId: string,
   userSecret: string,
-  accountId: string,
+  authorizationId: string,
 ): Promise<void> {
   const snap = client()
-  await snap.connections.removeBrokerageAuthorization({ authorizationId: accountId, userId, userSecret })
+  await snap.connections.removeBrokerageAuthorization({ authorizationId, userId, userSecret })
 }
 
 // ─── Holdings ────────────────────────────────────────────────────────────────
