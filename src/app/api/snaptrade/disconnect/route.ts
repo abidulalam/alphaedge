@@ -25,6 +25,12 @@ export async function DELETE(req: NextRequest) {
   const { accountId } = await req.json()
   if (!accountId) return NextResponse.json({ error: 'accountId required' }, { status: 400 })
 
-  await snapDeleteAccount(user.id, profile.snaptrade_user_secret, accountId)
-  return NextResponse.json({ ok: true })
+  try {
+    await snapDeleteAccount(user.id, profile.snaptrade_user_secret, accountId)
+    return NextResponse.json({ ok: true })
+  } catch (err: any) {
+    console.error('[snaptrade/disconnect] error:', err?.message ?? err)
+    const msg = err?.response?.data?.detail ?? err?.message ?? 'Disconnect failed'
+    return NextResponse.json({ error: msg }, { status: 500 })
+  }
 }

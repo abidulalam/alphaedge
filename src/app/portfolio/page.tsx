@@ -21,14 +21,15 @@ function money(n: number) {
 interface Position  { id: string; ticker: string; shares: number; avg_cost: number }
 interface Live      { price: number; changePct: number }
 interface ExtHolding {
-  accountId:   string
-  broker:      string
-  accountName: string
-  ticker:      string
-  shares:      number
-  price:       number | null
-  value:       number | null
-  cost:        number | null
+  accountId:       string
+  authorizationId: string
+  broker:          string
+  accountName:     string
+  ticker:          string
+  shares:          number
+  price:           number | null
+  value:           number | null
+  cost:            number | null
 }
 interface SnapAccount { id: string; name: string; institutionName: string; number: string }
 
@@ -149,17 +150,25 @@ export default function Portfolio() {
     }
   }
 
-  async function disconnectAccount(accountId: string) {
+  async function disconnectAccount(authorizationId: string) {
     if (!confirm('Disconnect this account? All its positions will be removed from your portfolio view.')) return
-    setDisconnecting(accountId)
+    setDisconnecting(authorizationId)
+    setSnapErr(null)
     try {
-      await fetch('/api/snaptrade/disconnect', {
+      const res = await fetch('/api/snaptrade/disconnect', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accountId }),
+        body: JSON.stringify({ accountId: authorizationId }),
       })
-      await loadSnap()
-    } catch (_) {}
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setSnapErr('Disconnect failed: ' + (json.error ?? res.statusText))
+      } else {
+        await loadSnap()
+      }
+    } catch (e: any) {
+      setSnapErr('Disconnect failed: ' + (e.message ?? 'Unknown error'))
+    }
     setDisconnecting(null)
   }
 
@@ -336,8 +345,8 @@ export default function Portfolio() {
                   <div style={{ fontFamily: mono, fontSize: 13, textAlign: 'right', color: pnl != null ? pc(pnl) : 'var(--text3)', fontWeight: 600 }}>{pnl != null ? (pnl >= 0 ? '+' : '') + money(pnl) : '—'}</div>
                   <div style={{ fontFamily: mono, fontSize: 13, textAlign: 'right', color: ret != null ? pc(ret) : 'var(--text3)' }}>{pct(ret)}</div>
                   <button
-                    onClick={() => disconnectAccount(holding.accountId)}
-                    disabled={disconnecting === holding.accountId}
+                    onClick={() => disconnectAccount(holding.authorizationId || holding.accountId)}
+                    disabled={disconnecting === (holding.authorizationId || holding.accountId)}
                     style={{ fontFamily: mono, fontSize: 12, color: 'var(--text3)', cursor: 'pointer', textAlign: 'center', padding: '4px 8px', border: '1px solid var(--border)', borderRadius: 4 }}
                     title="Disconnect this account"
                   >✕</button>
