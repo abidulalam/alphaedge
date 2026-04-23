@@ -41,8 +41,7 @@ export async function snapLoginUrl(
 // ─── Accounts ────────────────────────────────────────────────────────────────
 
 export interface SnapAccount {
-  id:              string
-  authorizationId: string
+  id:              string   // brokerage authorization ID (used for disconnect)
   name:            string
   institutionName: string
   number:          string
@@ -53,19 +52,16 @@ export async function snapListAccounts(
   userSecret: string,
 ): Promise<SnapAccount[]> {
   const snap = client()
-  const res = await snap.accountInformation.listUserAccounts({ userId, userSecret })
+  // Use listBrokerageAuthorizations — returns connection objects whose `id`
+  // is the authorizationId required by removeBrokerageAuthorization.
+  const res = await snap.connections.listBrokerageAuthorizations({ userId, userSecret })
   const data = res.data
-  return (Array.isArray(data) ? data : []).map((a: any) => {
-    const authorizationId = a.brokerage_authorization?.id ?? a.id ?? ''
-    console.log('[snapListAccounts] account:', { id: a.id, authorizationId, brokerage_authorization: a.brokerage_authorization })
-    return {
-      id:              a.id ?? '',
-      authorizationId,
-      name:            a.name ?? '',
-      institutionName: a.institution_name ?? a.brokerage_authorization?.brokerage?.name ?? 'Broker',
-      number:          a.number ?? '',
-    }
-  })
+  return (Array.isArray(data) ? data : []).map((a: any) => ({
+    id:              a.id ?? '',
+    name:            a.name ?? a.brokerage?.name ?? '',
+    institutionName: a.brokerage?.name ?? a.name ?? 'Broker',
+    number:          a.id?.slice(-6) ?? '',   // show last 6 chars of auth ID as reference
+  }))
 }
 
 export async function snapDeleteAccount(
@@ -80,14 +76,15 @@ export async function snapDeleteAccount(
 // ─── Holdings ────────────────────────────────────────────────────────────────
 
 export interface SnapHolding {
-  accountId:   string
-  broker:      string
-  accountName: string
-  ticker:      string
-  shares:      number
-  price:       number | null
-  value:       number | null
-  cost:        number | null
+  accountId:       string
+  authorizationId: string   // brokerage authorization ID — use this for disconnect
+  broker:          string
+  accountName:     string
+  ticker:          string
+  shares:          number
+  price:           number | null
+  value:           number | null
+  cost:            number | null
 }
 
 export async function snapFetchHoldings(
@@ -100,11 +97,12 @@ export async function snapFetchHoldings(
 
   const holdings: SnapHolding[] = []
   for (const account of Array.isArray(data) ? data : []) {
-    const broker      = account.account?.institution_name
+    const broker          = account.account?.institution_name
       ?? account.account?.brokerage_authorization?.brokerage?.name
       ?? 'Broker'
-    const accountId   = account.account?.id ?? ''
-    const accountName = account.account?.name ?? broker
+    const accountId       = account.account?.id ?? ''
+    const authorizationId = account.account?.brokerage_authorization?.id ?? ''
+    const accountName     = account.account?.name ?? broker
 
     for (const pos of account.positions ?? []) {
       const sym = pos.symbol
@@ -117,6 +115,7 @@ export async function snapFetchHoldings(
       const avgCost = pos.average_purchase_price != null ? Number(pos.average_purchase_price) : null
       holdings.push({
         accountId,
+        authorizationId,
         broker,
         accountName,
         ticker,
